@@ -1,5 +1,4 @@
-pub mod stream;
-
+use async_stream::try_stream;
 use bytes::{Bytes, BytesMut};
 use leptos::prelude::{FromServerFnError, ServerFnErrorErr};
 use leptos::server_fn::codec::{Encoding, FromReq, FromRes, IntoReq, IntoRes, Streaming};
@@ -218,26 +217,24 @@ impl<S: Stream<Item = Result<Bytes, Bytes>> + Send + Unpin> Buffered<S> {
 
     async fn take(&mut self, chunk_size: usize) -> Result<Option<BytesMut>, Bytes> {
         Ok(match self.stream_in(chunk_size).await? {
-            true => {
-                let buffer = &mut self.buffer;
-                Some(buffer.split_to(chunk_size.min(buffer.len())))
+            0 => None,
+            available => {
+                Some(self.buffer.split_to(available))
             }
-            false => None,
         })
     }
     
     async fn take_peek(&mut self, chunk_size: usize) -> Result<Option<&[u8]>, Bytes> {
         Ok(match self.stream_in(chunk_size).await? {
-            true => {
-                let buffer = &mut self.buffer;
-                Some(&buffer[..chunk_size.min(buffer.len())])
+            0 => None,
+            available => {
+                Some(&self.buffer[..available])
             }
-            false => None,
         })
     }
 
-    // Returns a bool that's true if there's available data and false otherwise.
-    async fn stream_in(&mut self, chunk_size: usize) -> Result<bool, Bytes> {
+    // Returns a [usize] of the number of bytes available for a [chunk_size] read.
+    async fn stream_in(&mut self, chunk_size: usize) -> Result<usize, Bytes> {
         let buffer = &mut self.buffer;
         
         while buffer.len() < chunk_size {
@@ -246,15 +243,15 @@ impl<S: Stream<Item = Result<Bytes, Bytes>> + Send + Unpin> Buffered<S> {
                 Some(Err(error)) => return Err(error),
                 None => {
                     if buffer.is_empty() {
-                        return Ok(false);
+                        return Ok(0);
                     }
 
-                    return Ok(true)
+                    return Ok(buffer.len())
                 }
             }
         }
         
-        Ok(true)
+        Ok(chunk_size)
     }
 }
 
@@ -265,79 +262,175 @@ where
     E: FromServerFnError,
 {
     async fn from_res(res: Response) -> Result<Self, E> {
+        async fn take<
+            S,
+            U, 
+            E
+        >(buffered: &mut Buffered<S>, chunk_size: usize, op: impl FnOnce(BytesMut) -> Result<U, E>) -> 
+            Result<Option<U>, E>
+         where S: Stream<Item = Result<Bytes, Bytes>> + Send + Unpin,
+            E: FromServerFnError {
+            buffered
+                .take(chunk_size)
+                .await
+                .map_err(|bytes_error| E::de(bytes_error))
+                .and_then(|maybe_bytes| maybe_bytes.map(op).transpose())
+        }
+
         let byte_stream = pin! { res.try_into_stream()? };
         let mut buffered = Buffered::new(byte_stream);
 
-        let a = async move || {
-            let buffer = BytesMut::new();
+        let buffer = BytesMut::new();
 
-            let take = move |size: usize| buffered.
-
-            loop {
-                let remaining = match 
-                    buffered.take(BitcodeHeader::size()).await
-                    .map_err(
-                        |bytes_error| E::de(bytes_error)
-                    )? {
-                    Some(chunk_size) => BitcodeHeader::from_bytes(
-                        chunk_size
-                            .as_ref()
-                            .try_into()
-                            .map_err(
-                                |err: TryFromSliceError| {
-                                    E::from_server_fn_error(ServerFnErrorErr::Deserialization("The stream ended before streaming an entire header!".to_string()))
-                                }
-                            )?
-                    ),
-                    None => {
-                        break;
-                    }
-                }.into();
-
-                let chunk = match buffered.take(remaining).await? {
-                    Some(chunk) => if chunk.len() < remaining {
-                            Err(
-                                E::from_server_fn_error(
-                                    ServerFnErrorErr::Deserialization("The stream ended before streaming an entire chunk!".to_string())
-                                )
-                            )?;
-                            return todo!();
-                        } else {
-                            chunk
-                        },
-                    None => {
-                        break;
-                    }
-                };
-
-                if chunk.len() == BitcodeHeader::max_chunk_size() 
-                {
-                   let remaining = match 
-                        buffered.take(BitcodeHeader::size()).await
-                        .map_err(
-                            |bytes_error| E::de(bytes_error)
-                        )? {
-                        Some(chunk_size) => BitcodeHeader::from_bytes(
-                            chunk_size
+        let take_header = 
+            async |buffered| 
+                take(
+                    buffered, 
+                    BitcodeHeader::size(), 
+                    |chunk_size: BytesMut|
+                            Ok(BitcodeHeader::from_bytes(
+                                chunk_size
                                 .as_ref()
                                 .try_into()
                                 .map_err(
-                                    |err: TryFromSliceError| {
-                                        E::from_server_fn_error(ServerFnErrorErr::Deserialization("The stream ended before streaming an entire header!".to_string()))
+                                    |_| {
+                                        E::from_server_fn_error(
+                                            ServerFnErrorErr::Deserialization(
+                                                "The stream ended before streaming an entire header!".to_string()
+                                            )
+                                        )
                                     }
                                 )?
-                        ),
-                        None => {
-                            break;
-                        }
-                    }.into();
+                            ) as usize)).await;
 
-                    if remaining == 0 {
+        let take_chunk = 
+            async |buffered, chunk_size| 
+            take(
+                buffered,
+                chunk_size,
+            |chunk: BytesMut| 
+                    (chunk.len() >= chunk_size)
+                    .then(
+                        move || chunk 
+                    )
+                    .ok_or_else(
+                        || 
+                            E::from_server_fn_error(
+                                ServerFnErrorErr::Deserialization(
+                                    "The stream ended before streaming an entire chunk!".to_string()
+                                )
+                            )
+                    
+                    )
+            ).await;
 
-                    }
+        loop {
+            let Some(remaining) = take_header(&mut buffered).await? else {
+                break;
+            };
+
+            let Some(chunk) = take_chunk(&mut buffered, remaining).await? else {
+                break;
+            };
+     
+            if chunk.len() == BitcodeHeader::max_chunk_size() {
+                let Some(remaining) = take_header(&mut buffered).await? else {
+                    break;
+                };
+                
+                if remaining == 0 {
+                    
                 }
             }
-        };
+            
+
+            // yield todo!();
+
+            // let remaining = match
+            //     buffered.take(BitcodeHeader::size())
+            //     .await
+            //     .map_err(
+            //         |bytes_error| E::de(bytes_error)
+            //     )? {
+            //         Some(_) => {}
+            //         None => {}
+            // };
+
+            break;
+        }
+        // let a = try_stream! {
+
+        //     ()
+        // };
+
+        // fn asdf<T, E>(a: impl Stream<Item = Result<T, E>>) {}
+
+        // asdf::<T, E>(a);
+
+        // loop {
+        //     let remaining = match 
+        //         buffered.take(BitcodeHeader::size()).await
+        //         .map_err(
+        //             |bytes_error| E::de(bytes_error)
+        //         )? {
+        //         Some(chunk_size) => BitcodeHeader::from_bytes(
+        //             chunk_size
+        //                 .as_ref()
+        //                 .try_into()
+        //                 .map_err(
+        //                     |err: TryFromSliceError| {
+        //                         E::from_server_fn_error(ServerFnErrorErr::Deserialization("The stream ended before streaming an entire header!".to_string()))
+        //                     }
+        //                 )?
+        //         ),
+        //         None => {
+        //             break;
+        //         }
+        //     }.into();
+
+        //     let chunk = match buffered.take(remaining).await? {
+        //         Some(chunk) => if chunk.len() < remaining {
+        //                 Err(
+        //                     E::from_server_fn_error(
+        //                         ServerFnErrorErr::Deserialization("The stream ended before streaming an entire chunk!".to_string())
+        //                     )
+        //                 )?;
+        //                 return todo!();
+        //             } else {
+        //                 chunk
+        //             },
+        //         None => {
+        //             break;
+        //         }
+        //     };
+
+        //     if chunk.len() == BitcodeHeader::max_chunk_size() 
+        //     {
+        //        let remaining = match 
+        //             buffered.take(BitcodeHeader::size()).await
+        //             .map_err(
+        //                 |bytes_error| E::de(bytes_error)
+        //             )? {
+        //             Some(chunk_size) => BitcodeHeader::from_bytes(
+        //                 chunk_size
+        //                     .as_ref()
+        //                     .try_into()
+        //                     .map_err(
+        //                         |err: TryFromSliceError| {
+        //                             E::from_server_fn_error(ServerFnErrorErr::Deserialization("The stream ended before streaming an entire header!".to_string()))
+        //                         }
+        //                     )?
+        //             ),
+        //             None => {
+        //                 break;
+        //             }
+        //         }.into();
+
+        //         if remaining == 0 {
+
+        //         }
+        //     }
+        // }
 
 
         todo!()
