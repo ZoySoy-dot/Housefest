@@ -1,5 +1,8 @@
 pub mod app;
+pub mod chat;
 pub mod realtime;
+pub mod scores;
+pub mod validation;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

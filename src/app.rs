@@ -1,248 +1,50 @@
 use cfg_if::cfg_if;
+use leptos_use::use_media_query;
 
-#[allow(unused_imports)]
 use leptos::{
     ev::MouseEvent,
+    html::{Input, Textarea},
     prelude::{
-        component, signal, view, AddAnyAttr, ClassAttribute, ElementChild, FromServerFnError, Get,
-        GlobalAttributes, IntoAnyAttribute, IntoView, OnAttribute, ServerFnError, ServerFnErrorErr,
-        Set, Update,
+        component, signal, view, AddAnyAttr, ClassAttribute, ElementChild, Get, GlobalAttributes,
+        IntoView, NodeRef, NodeRefAttribute, OnAttribute, ServerFnError, Set, Update,
     },
     server,
     task::spawn_local,
 };
-use leptos::{
-    html::Textarea,
-    prelude::{NodeRef, NodeRefAttribute},
-};
+
 use leptos_meta::{provide_meta_context, Body, Link, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     path,
 };
 
-use async_stream::stream;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
-use server_fn::codec::JsonEncoding;
-use strum::{AsRefStr, EnumIter, IntoEnumIterator};
+use server_fn::{BoxedStream, Websocket};
+use strum::IntoEnumIterator;
 
-use crate::realtime::bitcodec::{BitcodeStream, StreamingBitcode};
+use futures_util::{stream::empty, StreamExt};
 
-use std::{
-    ops::{Range, RangeInclusive},
-    sync::OnceLock,
+use crate::{
+    chat::{ChatMessage, ChatText},
+    realtime::bitcodec::BitcodeEncoding,
+    scores::{House, HousesScores},
+    validation::FromClient,
 };
-use thiserror::Error as ThisError;
 
-use futures_util::{stream::once, StreamExt};
-use leptos::logging::log;
-
-#[derive(Default, Serialize, Deserialize, Clone, Debug)]
-pub struct HousesScores {
-    pub benilde: i32,
-    pub jaime: i32,
-    pub mutien: i32,
-    pub miguel: i32,
-}
-
-impl HousesScores {
-    fn get(&self, house: House) -> i32 {
-        use House as H;
-
-        match house {
-            H::Benilde => self.benilde,
-            H::Jaime => self.jaime,
-            H::Miguel => self.miguel,
-            H::Mutien => self.mutien,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, AsRefStr, EnumIter)]
-#[strum(serialize_all = "kebab-case")]
-enum House {
-    Benilde,
-    Jaime,
-    Mutien,
-    Miguel,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Username(String);
-
-#[derive(ThisError, Debug, Serialize, Deserialize)]
-enum UsernameError {
-    #[error("You must have a username that's between 2 and 32 characters!")]
-    InvalidLength,
-    #[error("You can only have usernames that contain letters, digits, periods, and underscores.")]
-    InvalidCharacters,
-}
-
-impl Username {
-    const LENGTH_RANGE: RangeInclusive<usize> = (0..=32);
-
-    fn username_validator() -> &'static Regex {
-        static USERNAME_VALIDATOR: OnceLock<Regex> = OnceLock::new();
-
-        USERNAME_VALIDATOR.get_or_init(|| {
-            Regex::new(r"^[a-zA-Z0-9._]{2,32}$").expect("This should be a valid Regex!")
-        })
-    }
-
-    fn is_valid(username: impl AsRef<str>) -> Result<(), UsernameError> {
-        let username = username.as_ref();
-
-        use UsernameError as UE;
-
-        if !Self::LENGTH_RANGE.contains(&username.len()) {
-            return Err(UE::InvalidLength);
-        }
-
-        if !Self::username_validator().is_match(username) {
-            return Err(UE::InvalidCharacters);
-        }
-
-        Ok(())
-    }
-
-    fn new(username: String) -> Result<Username, UsernameError> {
-        Self::is_valid(&username).map(|_| Username(username))
-    }
-}
-
-impl Revalidate for Username {
-    type Error = UsernameError;
-
-    fn revalidate(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Username::new(self.0)
-    }
-}
-
-#[derive(ThisError, Debug, Serialize, Deserialize)]
-enum ChatTextError {
-    #[error("Chat messages must be at most 500 characters.")]
-    InvalidLength,
-    #[error("You can only have visible ascii characters, spaces, and newlines in your messages!")]
-    InvalidCharacters,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ChatText(String);
-
-impl ChatText {
-    const MAX_LENGTH: usize = 500;
-
-    fn is_valid(message: impl AsRef<str>) -> Result<(), ChatTextError> {
-        let message = message.as_ref();
-
-        use ChatTextError as CTE;
-
-        if message.len() > Self::MAX_LENGTH {
-            return Err(CTE::InvalidLength);
-        }
-
-        let valid_chat_character =
-            |character: char| character.is_ascii_graphic() || character == ' ' || character == '\n';
-
-        if !message.chars().all(valid_chat_character) {
-            return Err(CTE::InvalidCharacters);
-        }
-
-        Ok(())
-    }
-
-    fn new(message: String) -> Result<ChatText, ChatTextError> {
-        Self::is_valid(&message).map(|_| ChatText(message))
-    }
-}
-
-impl Revalidate for ChatText {
-    type Error = ChatTextError;
-
-    fn revalidate(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        ChatText::new(self.0)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ChatMessage {
-    username: Username,
-    message: ChatText,
-}
-
-impl ChatMessage {
-    fn new(username: String, message: String) -> Result<Self, ChatMessageError> {
-        Ok(ChatMessage {
-            username: Username::new(username)?,
-            message: ChatText::new(message)?,
-        })
-    }
-}
-
-impl Revalidate for ChatMessage {
-    type Error = ChatMessageError;
-
-    fn revalidate(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Self::new(self.username.0, self.message.0)
-    }
-}
-
-#[derive(ThisError, Debug, Serialize, Deserialize)]
-enum ChatMessageError {
-    #[error(transparent)]
-    UsernameError(#[from] UsernameError),
-    #[error(transparent)]
-    ChatTextError(#[from] ChatTextError),
-}
-
-#[derive(ThisError, Debug, Serialize, Deserialize)]
-enum ServerChatMessageError {
-    #[error(transparent)]
-    ServerFnError(#[from] ServerFnErrorErr),
-    #[error(transparent)]
-    ChatMessageError(#[from] ChatMessageError),
-}
-
-impl FromServerFnError for ServerChatMessageError {
-    type Encoder = JsonEncoding;
-
-    fn from_server_fn_error(value: ServerFnErrorErr) -> Self {
-        ServerChatMessageError::ServerFnError(value)
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct FromClient<T> {
-    value: T,
-}
-
-impl<T: Revalidate> FromClient<T> {
-    fn revalidate(self) -> Result<T, T::Error> {
-        self.value.revalidate()
-    }
-}
-
-trait Revalidate {
-    type Error;
-    fn revalidate(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
+#[allow(unused_imports)]
+use leptos::prelude::IntoAnyAttribute;
 
 cfg_if! {
 if #[cfg(feature = "ssr")] {
-    use crate::realtime::observable::Observable;
     use std::sync::Mutex;
+    use actix_web::web::Data;
+    use futures_util::stream::once;
+
+    use leptos::prelude::ServerFnErrorErr;
+    use leptos_actix::extract;
+
+    use std::ops::Range;
+
+    use crate::{realtime::observable::Observable, validation::ValidateInvariants};
 
     pub struct AppState {
         pub scores: Mutex<Observable<HousesScores>>,
@@ -253,7 +55,7 @@ if #[cfg(feature = "ssr")] {
         pub fn new() -> Self {
             Self {
                 scores:  Mutex::new(Observable::new(HousesScores::default())),
-                chat_messages: Mutex::new(Observable::new(vec![ChatMessage::new("1asdf".to_string(), "asdf".to_string()).expect("This should be a valid chat message!"), ChatMessage::new("asdf".to_string(), "asdf".to_string()).expect("This should be a valid chat message!")]))
+                chat_messages: Mutex::new(Observable::new(vec![]))
             }
         }
     }
@@ -290,30 +92,30 @@ pub fn App() -> impl IntoView {
     }
 }
 
-#[server(output = StreamingBitcode)]
-async fn stream_score() -> Result<BitcodeStream<HousesScores>, ServerFnError> {
-    use actix_web::web::Data;
-    use leptos_actix::extract;
-
+#[server(protocol = Websocket<BitcodeEncoding, BitcodeEncoding>)]
+async fn stream_score(
+    _input: BoxedStream<(), ServerFnError>,
+) -> Result<BoxedStream<HousesScores, ServerFnError>, ServerFnError> {
     let app_state = extract::<Data<AppState>>().await?;
-    let mut scores = app_state
-        .scores
-        .lock()
-        .expect("Couldn't obtain the Mutex protecting the house scores!");
+    let mut scores = app_state.scores.lock().map_err(|_| {
+        ServerFnErrorErr::ServerError(
+            "Couldn't obtain the Mutex protecting the house scores!".to_string(),
+        )
+    })?;
 
-    Ok(BitcodeStream::from(scores.subscribe(1)))
+    Ok(scores.subscribe(1).map(Result::Ok).into())
 }
 
 #[server]
-async fn add_score(scored: House) -> Result<(), ServerFnError> {
-    use actix_web::web::Data;
-    use leptos_actix::extract;
+async fn add_score(scored: FromClient<House>) -> Result<(), ServerFnError> {
+    let scored = scored.validate()?;
 
     let app_state: Data<AppState> = extract().await?;
-    let mut score = app_state
-        .scores
-        .lock()
-        .expect("Couldn't obtain the Mutex protecting the house scores!");
+    let mut score = app_state.scores.lock().map_err(|_| {
+        ServerFnErrorErr::ServerError(
+            "Couldn't obtain the Mutex protecting the house scores!".to_string(),
+        )
+    })?;
 
     score.update(move |house_scores: &mut HousesScores| {
         use House as H;
@@ -331,38 +133,37 @@ async fn add_score(scored: House) -> Result<(), ServerFnError> {
     Ok(())
 }
 
-trait Subslice<T> {
-    fn subslice(&self, range: Range<isize>) -> Option<&[T]>;
-}
-
-impl<T> Subslice<T> for [T] {
-    fn subslice(&self, range: Range<isize>) -> Option<&[T]> {
-        if self.len() > (isize::MAX as usize) {
-            panic!("We don't support this size of slice!");
-        }
-
-        let len = self.len() as isize;
-
-        if range.start < 0 || range.end < range.start || range.end > len {
-            return None;
-        }
-
-        self.get((range.start as usize)..(range.end as usize))
+#[server(protocol = Websocket<BitcodeEncoding, BitcodeEncoding>)]
+async fn stream_chat(
+    _input: BoxedStream<(), ServerFnError>,
+) -> Result<BoxedStream<Vec<ChatMessage>, ServerFnError>, ServerFnError> {
+    trait Subslice<T> {
+        fn subslice(&self, range: Range<isize>) -> Option<&[T]>;
     }
-}
 
-#[server(output = StreamingBitcode)]
-async fn stream_chat() -> Result<BitcodeStream<Vec<ChatMessage>>, ServerFnError> {
-    use actix_web::web::Data;
-    use leptos_actix::extract;
-    use tokio::task::yield_now;
+    impl<T> Subslice<T> for [T] {
+        fn subslice(&self, range: Range<isize>) -> Option<&[T]> {
+            if self.len() > (isize::MAX as usize) {
+                panic!("We don't support this size of slice!");
+            }
+
+            let len = self.len() as isize;
+
+            if range.start < 0 || range.end < range.start || range.end > len {
+                return None;
+            }
+
+            self.get((range.start as usize)..(range.end as usize))
+        }
+    }
 
     let app_state = extract::<Data<AppState>>().await?;
 
-    let mut chat_messages_observable = app_state
-        .chat_messages
-        .lock()
-        .expect("Couldn't obtain the Mutex protecting the chat messages!");
+    let mut chat_messages_observable = app_state.chat_messages.lock().map_err(|_| {
+        ServerFnErrorErr::ServerError(
+            "Couldn't obtain the Mutex protecting the chat messages!".to_string(),
+        )
+    })?;
 
     let chat_messages = chat_messages_observable.get();
 
@@ -379,7 +180,7 @@ async fn stream_chat() -> Result<BitcodeStream<Vec<ChatMessage>>, ServerFnError>
         .unwrap_or(&[])
         .to_vec();
 
-    let updates = chat_messages_observable.selecting_subscribe(
+    let live = chat_messages_observable.selecting_subscribe(
         |chat_messages| {
             chat_messages
                 .last()
@@ -390,33 +191,19 @@ async fn stream_chat() -> Result<BitcodeStream<Vec<ChatMessage>>, ServerFnError>
         BUFFER_CAPACITY,
     );
 
-    drop(chat_messages_observable);
-
-    let a = once(async { backread }).chain(updates);
-
-    // for _ in 0..10 {
-    //     if let Some(b) = a.next().await {
-    //         log!("[server] read from stream: {:?}", b);
-    //     }
-
-    //     break;
-    // }
-
-    Ok(BitcodeStream::from(a))
+    Ok(once(async { backread }).chain(live).map(Result::Ok).into())
 }
 
 #[server]
-async fn chat(chat_message: FromClient<ChatMessage>) -> Result<(), ServerChatMessageError> {
-    use actix_web::web::Data;
-    use leptos_actix::extract;
-
-    let chat_message = chat_message.revalidate()?;
+async fn chat(chat_message: FromClient<ChatMessage>) -> Result<(), ServerFnError> {
+    let chat_message = chat_message.validate()?;
 
     let app_state: Data<AppState> = extract().await?;
-    let mut chat_messages = app_state
-        .chat_messages
-        .lock()
-        .expect("Couldn't obtain the Mutex protecting the chat messages!");
+    let mut chat_messages = app_state.chat_messages.lock().map_err(|_| {
+        ServerFnErrorErr::ServerError(
+            "Couldn't obtain the Mutex protecting the chat messages!".to_string(),
+        )
+    })?;
 
     chat_messages.update(move |chat_messages: &mut Vec<ChatMessage>| {
         chat_messages.push(chat_message);
@@ -462,16 +249,15 @@ fn ScoreCard(
 fn ScoreBoard(class: impl AsRef<str>) -> impl IntoView {
     let (scores_getter, scores_setter) = signal(HousesScores::default());
 
-    // spawn_local(async move {
-    //     let mut scores_stream = stream_score()
-    //         .await
-    //         .expect("Couldn't get scores stream!")
-    //         .into_inner();
+    spawn_local(async move {
+        let mut scores_stream = stream_score(empty().into())
+            .await
+            .expect("Couldn't get scores stream!");
 
-    //     while let Some(Ok(current_score)) = scores_stream.next().await {
-    //         scores_setter.set(current_score);
-    //     }
-    // });
+        while let Some(Ok(current_score)) = scores_stream.next().await {
+            scores_setter.set(current_score);
+        }
+    });
 
     view! {
         <div class={format!("{} fill-parent scoreboard", class.as_ref())}>
@@ -485,7 +271,7 @@ fn ScoreBoard(class: impl AsRef<str>) -> impl IntoView {
                                 view! {
                                     <ScoreCard house=house on_score=move |_| {
                                         spawn_local(async move {
-                                            add_score(house).await.expect("Failed to increment score!");
+                                            add_score(house.into()).await.expect("Failed to increment score!");
                                         });
                                     } score=scores.get(house)/>
                                 }
@@ -497,48 +283,21 @@ fn ScoreBoard(class: impl AsRef<str>) -> impl IntoView {
 }
 
 #[component]
-fn ChatWindow() -> impl IntoView {
+fn ChatMessages() -> impl IntoView {
     let (chat_getter, chat_setter) = signal(Vec::<ChatMessage>::new());
 
     spawn_local(async move {
-        let maybe_chat_stream = stream_chat().await;
+        let mut chat_stream = stream_chat(empty().into())
+            .await
+            .expect("Couldn't get the chat message stream!");
 
-        log!("{:?}", maybe_chat_stream);
-
-        let mut chat_stream = maybe_chat_stream
-            .expect("Couldn't get chat stream!")
-            .into_inner();
-
-        log!("2");
-
-        loop {
-            log!("3");
-            let maybe_message = chat_stream.next().await;
-
-            log!("4");
-
-            if let Some(Ok(current_messages)) = maybe_message {
-                log!("5");
-                chat_setter.update(move |chat| chat.extend(current_messages));
-                continue;
-            }
-
-            log!("6");
-            log!("{:?}", maybe_message);
-            break;
+        while let Some(Ok(current_messages)) = chat_stream.next().await {
+            chat_setter.update(move |chat| chat.extend(current_messages));
         }
-
-        log!("7");
     });
 
-    let chat_input: NodeRef<Textarea> = NodeRef::new();
-
     view! {
-        <div class="fill-parent chat-window" id="chat-window">
-            <div class="top-bar">
-                <input maxlength="20" class="fill-parent" placeholder="What username will you use?"></input>
-            </div>
-            <div class="chat-messages">
+        <div class="chat-messages">
                 {
                     move ||
                         {
@@ -546,32 +305,87 @@ fn ChatWindow() -> impl IntoView {
                                 .get()
                                 .iter()
                                 .map(
-                                    |chat_message|
+                                    |chat_message| {
+                                        let username = chat_message.username().as_ref().to_owned();
+
                                         view! {
-                                            <div>{format!("{:?}", chat_message)}</div>
+                                            <div><span>{username}</span></div>
                                         }
+                                    }
                                 )
                                 .collect::<Vec<_>>()
                         }
                 }
-            </div>
-            <div class="message-bar">
-                <textarea on:keydown=move |event| {
-                    if event.key() == "Enter" && !event.shift_key() {
-                        event.prevent_default();
+        </div>
+    }
+}
 
-                        spawn_local(
-                            async move {
-                                chat(
-                                    FromClient { value: ChatMessage::new("testu".to_string(), "testm".to_string()).expect("should be valid!") }
-                                )
-                                .await
-                                .expect("Failed to send chat message!");
-                            }
-                        );
+#[component]
+fn ChatWindow() -> impl IntoView {
+    let needs_screen_keyboard = use_media_query("(pointer: coarse)");
+
+    let chat_area_ref: NodeRef<Textarea> = NodeRef::new();
+    let top_bar_ref: NodeRef<Input> = NodeRef::new();
+
+    let send_listeners = move || {
+        let send_chat_message: Box<dyn Fn()> = Box::new(move || {
+            let chat_area = chat_area_ref
+                .get()
+                .expect("The chat textarea should have been loaded by now!");
+
+            let chat_text = chat_area.value();
+
+            let username = top_bar_ref
+                .get()
+                .expect("The top username bar should have loaded by now!")
+                .value();
+
+            chat_area.set_value("");
+
+            spawn_local(async move {
+                chat(
+                    ChatMessage::new(username, chat_text)
+                        .expect("Invalid chat text or username!")
+                        .into(),
+                )
+                .await
+                .expect("Failed to send chat message!");
+            });
+        });
+
+        let empty: Box<dyn Fn()> = Box::new(|| {});
+
+        if needs_screen_keyboard.get() {
+            (send_chat_message, empty)
+        } else {
+            (empty, send_chat_message)
+        }
+    };
+
+    view! {
+        <div class="fill-parent chat-window" id="chat-window">
+            <div class="top-bar">
+                <input node_ref=top_bar_ref maxlength="20" class="fill-parent" placeholder="What username will you use?"></input>
+            </div>
+            <ChatMessages/>
+            <div class="message-bar">
+                {
+                    move || {
+                        let (mobile_send, desktop_send) = send_listeners();
+
+                        view! {
+                            <textarea on:keypress={
+                                move |event| {
+                                    if event.key() == "Enter" {
+                                        event.prevent_default();
+                                        desktop_send();
+                                    }
+                                }
+                            } node_ref={chat_area_ref} maxlength={ChatText::MAX_LENGTH} placeholder="Cheer your house on!"></textarea>
+                            <button on:click={move |_| mobile_send()} class="mobile-send-button"><span class="material-symbols-outlined">send</span></button>
+                        }
                     }
-                }  maxlength={ChatText::MAX_LENGTH} placeholder="Cheer your house on!" node_ref=chat_input></textarea>
-                <button><span class="material-symbols-outlined">send</span></button>
+                }
             </div>
         </div>
     }
