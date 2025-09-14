@@ -92,6 +92,54 @@ pub fn App() -> impl IntoView {
     }
 }
 
+// #[component]
+// fn HomePage() -> impl IntoView {
+//     view! {
+//         <Link rel="preconnect" href="https://fonts.googleapis.com"/>
+//         <Link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+
+//         <Stylesheet href="https://fonts.googleapis.com/css2?family=Caudex:ital,wght@0,400;0,700;1,400;1,700&family=Cinzel+Decorative:wght@400;700;900&family=Forum&family=Marcellus+SC&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"/>
+//         <Stylesheet href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=keyboard_arrow_down,send,social_leaderboard"/>
+
+//         <Body {..} class="grow-to-parent flex"/>
+
+//         <div class="scoreboard-container">
+//             <div class="stackable stack-2 mobile-dropdown">
+//                 <button onclick="location.href='#chat-window'"><span
+//                         class="material-symbols-outlined">keyboard_arrow_down</span></button>
+//             </div>
+//             <ScoreBoard class="stackable stack-1"/>
+//         </div>
+//         <div class="chat-window-container">
+//             <ChatWindow />
+//         </div>
+//     }
+// }
+
+#[component]
+fn HomePage() -> impl IntoView {
+    view! {
+        <Link rel="preconnect" href="https://fonts.googleapis.com"/>
+        <Link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+
+        <Stylesheet href="https://fonts.googleapis.com/css2?family=Caudex:ital,wght@0,400;0,700;1,400;1,700&family=Cinzel+Decorative:wght@400;700;900&family=Forum&family=Marcellus+SC&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"/>
+        <Stylesheet href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=keyboard_arrow_down,send,social_leaderboard"/>
+
+        <Body {..} class="grow-to-parent flex"/>
+
+        <div class="scoreboard-container">
+            <div class="stackable stack-2 mobile-dropdown">
+                <button onclick="location.href='#chat-window'"><span
+                        class="material-symbols-outlined">keyboard_arrow_down</span></button>
+            </div>
+            <ScoreBoard class="stackable stack-1"/>
+        </div>
+        <div class="chat-window-container">
+            <ChatWindow />
+        </div>
+    }
+}
+
 #[server(protocol = Websocket<BitcodeEncoding, BitcodeEncoding>)]
 async fn stream_score(
     _input: BoxedStream<(), ServerFnError>,
@@ -387,30 +435,6 @@ fn ChatWindow() -> impl IntoView {
                     }
                 }
             </div>
-        </div>
-    }
-}
-
-#[component]
-fn HomePage() -> impl IntoView {
-    view! {
-        <Link rel="preconnect" href="https://fonts.googleapis.com"/>
-        <Link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
-
-        <Stylesheet href="https://fonts.googleapis.com/css2?family=Caudex:ital,wght@0,400;0,700;1,400;1,700&family=Cinzel+Decorative:wght@400;700;900&family=Forum&family=Marcellus+SC&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"/>
-        <Stylesheet href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=keyboard_arrow_down,send,social_leaderboard"/>
-
-        <Body {..} class="grow-to-parent flex"/>
-
-        <div class="scoreboard-container">
-            <div class="stackable stack-2 mobile-dropdown">
-                <button onclick="location.href='#chat-window'"><span
-                        class="material-symbols-outlined">keyboard_arrow_down</span></button>
-            </div>
-            <ScoreBoard class="stackable stack-1"/>
-        </div>
-        <div class="chat-window-container">
-            <ChatWindow />
         </div>
     }
 }
