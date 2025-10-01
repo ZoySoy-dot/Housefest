@@ -8,9 +8,13 @@ async function stream_score() {
   return score.subscribe();
 }
 
-async function increment_score() {
+async function increment_score(how_much : number) {
   "use server";
-  score.update((score) => score + 1);
+  score.update((score) => score + how_much);
+}
+async function decrement_score(how_much : number){
+  "use server";
+  score.update((score) => score - how_much)
 }
 
 export default function Home() {
@@ -27,12 +31,13 @@ export default function Home() {
 
   return (
     <main>
-      <Title>Hello World</Title>
-      <h1>Moldy Pizza Is Not I REPAT NOT DISLICIOAU</h1>
+      <Title>DLSU Housefest</Title>
+      <h1>DLSU Housefest Feed</h1>
       <p>
         {score()}
       </p>
-      <button on:click={() => { increment_score(); }}>YES IT WORK</button>
+      <button on:click={() => { increment_score(1); }}>YES IT WORK</button>
+      <button on:click={() => { decrement_score(1);}}>DOES IT REALLY THO</button>
     </main>
   );
 }
