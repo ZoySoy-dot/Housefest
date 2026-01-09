@@ -1,46 +1,40 @@
-// src/server/score.ts
-"use server";
+import { google } from "googleapis";
+import serviceAccount from "../../service-account.json"; 
 
-import Pusher from "pusher";
+const SPREADSHEET_ID = "1azrNGnHeHtJHMrA7_QfQ112STH_ogXcCQTeOzV9BRbw";
+const RANGE = "Sheet1!A1:Z"; 
 
-let currentScore = 0;
-
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.VITE_PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.VITE_PUSHER_CLUSTER!,
-  useTLS: true,
-});
-
-export async function getScore() {
+export async function getSheetData() {
   "use server";
-  console.log("[SERVER] Getting score:", currentScore);
-  return currentScore;
-}
+  console.log("-----------------------------------------");
+  console.log("[SERVER] 🚀 Attempting to connect to Google Sheets...");
 
-export async function incrementScore(amount: number) {
-  "use server";
-  currentScore += amount;
-  console.log("[SERVER] Incremented score to:", currentScore);
-  
-  await pusher.trigger("score-channel", "score-update", {
-    score: currentScore,
-  });
-  console.log("[SERVER] Pusher event triggered");
-  
-  return currentScore;
-}
+  try {
+    // FIX: Pass configuration as a single object
+    const auth = new google.auth.JWT({
+      email: serviceAccount.client_email,
+      key: serviceAccount.private_key,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
 
-export async function decrementScore(amount: number) {
-  "use server";
-  currentScore -= amount;
-  console.log("[SERVER] Decremented score to:", currentScore);
-  
-  await pusher.trigger("score-channel", "score-update", {
-    score: currentScore,
-  });
-  console.log("[SERVER] Pusher event triggered");
-  
-  return currentScore;
+    const sheets = google.sheets({ version: "v4", auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: RANGE,
+    });
+
+    const rows = response.data.values;
+    
+    console.log(`[SERVER] ✅ SUCCESS! Connected.`);
+    console.log(`[SERVER] Found ${rows ? rows.length : 0} rows of data.`);
+    console.log("-----------------------------------------");
+
+    return rows || [];
+  } catch (error) {
+    console.error("[SERVER] ❌ CONNECTION FAILED:", error);
+    // Print the full error so we can see if it's a 403 or 404
+    console.error(error); 
+    return [];
+  }
 }
