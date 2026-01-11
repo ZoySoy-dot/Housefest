@@ -47,46 +47,83 @@ export default function Home() {
 
   return (
     <main>
-      <Title>DLSU Housefest</Title>
-      <h1>DLSU Housefest Live Feed</h1>
+            <Title>DLSU Housefest</Title>
       
-      {/* IMPROVED STATUS BAR */}
-      <div style={{ 
-        "background": "#222", 
-        "color": status().includes("Failed") ? "#ff5555" : "#0f0", 
-        "padding": "1rem", 
-        "font-family": "monospace", 
-        "margin-bottom": "2rem",
-        "border-left": "4px solid #0f0"
-      }}>
-         <div>Status: <strong>{status()}</strong></div>
-         <div style={{"font-size": "0.8em", "opacity": 0.7, "margin-top": "5px"}}>
-           Last Check: {lastCheck()}
-         </div>
-      </div>
+      <header id="main-header">
+        {/* Left Space (or Logo) */}
+        <div id="left">
+          <img src="/src/assests/SC_Logo.svg" alt="" id="SC-Logo" class="Header-Logo" />
+        </div>
 
-      <div class="score-display">
-        {data().length === 0 ? (
-          <p>Waiting for data...</p>
-        ) : (
-          <table style={{ width: "100%", "text-align": "left" }}>
-            <thead>
-              <tr style={{"background": "#f0f0f0"}}>
-                <For each={data()[0]}>{(header) => <th style={{"padding": "10px"}}>{header}</th>}</For>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={data().slice(1)}>
-                {(row) => (
-                  <tr style={{"border-bottom": "1px solid #eee"}}>
-                    <For each={row}>{(cell) => <td style={{"padding": "10px"}}>{cell}</td>}</For>
-                  </tr>
-                )}
-              </For>
-            </tbody>
-          </table>
-        )}
+        {/* Center Content */}
+        <div id="center">
+          <h1>HOUSEFEST</h1>
+          <h6>2025-2026</h6>
+          
+          <nav class="pill-nav">
+            <a href="#Score">SCORE</a>
+            <a href="#Live">
+              LIVE <span class="live-dot"></span>
+            </a>
+            <a href="#About">INFO</a>
+          </nav>
+        </div>
+
+        {/* Right Space (or Logo) */}
+        <div id="right">
+          <img src="/src/assests/DLSU_Logo.svg" alt="" id="DLSU-Logo" class="Header-Logo" />
+        </div>
+      </header>
+      <section id="Score" class="score-section">
+    {/* Mutien - White */}
+    <div class="team-container">
+      <div class="team-card mutien">
+        <h1 class="placement">1ST</h1>
+        <div class="bottom-stats">
+          <h2 class="points">0</h2>
+          <span class="points-label">POINTS</span>
+        </div>
       </div>
+      <h1 class="team-name">MUTIEN</h1>
+    </div>
+
+    {/* Benilde - Black */}
+    <div class="team-container">
+      <div class="team-card benilde">
+        <h1 class="placement">1ST</h1>
+        <div class="bottom-stats">
+          <h2 class="points">0</h2>
+          <span class="points-label">POINTS</span>
+        </div>
+      </div>
+      <h1 class="team-name">BENILDE</h1>
+    </div>
+
+    {/* Jaime - Bright Green */}
+    <div class="team-container">
+      <div class="team-card jaime">
+        <h1 class="placement">1ST</h1>
+        <div class="bottom-stats">
+          <h2 class="points">0</h2>
+          <span class="points-label">POINTS</span>
+        </div>
+      </div>
+      <h1 class="team-name">JAIME</h1>
+    </div>
+
+    {/* Miguel - Dark Green */}
+    <div class="team-container">
+      <div class="team-card miguel">
+        <h1 class="placement">1ST</h1>
+        <div class="bottom-stats">
+          <h2 class="points">0</h2>
+          <span class="points-label">POINTS</span>
+        </div>
+      </div>
+      <h1 class="team-name">MIGUEL</h1>
+    </div>
+  </section>
+
     </main>
   );
 }
