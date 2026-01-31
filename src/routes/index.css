@@ -146,12 +146,15 @@ main {
   border: 2px solid white;
   box-shadow: 0 5px 10px rgba(0,0,0,0.5);
   min-width: 0;
+  background-repeat: no-repeat; 
+  background-position: center; 
+  background-size: 20rem; 
 }
 
-.mutien { background-color: white; color: black; border: 2px solid white; }
-.benilde { background-color: black; color: white; border: 2px solid #00ffaa; }
-.jaime { background-color: #00ff00; color: black; border: 2px solid #00ff00; }
-.miguel { background-color: #006400; color: white; border: 2px solid #00ff00; }
+.mutien { background-color: white; color: black; border: 2px solid white; background-image: url("/assets/Houses/Logos/Marie.png"); }
+.benilde { background-color: black; color: white; border: 2px solid #00ffaa; background-image: url("/assets/Houses/Logos/Benilde.png");}
+.jaime { background-color: #00ff00; color: black; border: 2px solid #00ff00; background-image: url("/assets/Houses/Logos/Jaime.png");}
+.miguel { background-color: #006400; color: white; border: 2px solid #00ff00;background-image: url("/assets/Houses/Logos/Miguel.png"); }
 
 .placement { font-family: 'Arial Black', sans-serif; font-size: 1.2rem; margin: 0; }
 .bottom-stats { text-align: center; }
