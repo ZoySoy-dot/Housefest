@@ -195,7 +195,7 @@ export default function Home() {
 
   return (
     <main>
-      <Title>DLSU Housefest</Title>
+      <Title>Housefest</Title>
       
       <header id="main-header">
         <div id="left"><img src="/assets/SC_Logo.svg" alt="" class="Header-Logo" /></div>
