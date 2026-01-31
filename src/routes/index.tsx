@@ -1,7 +1,7 @@
 import { Title } from "@solidjs/meta";
 import { createSignal, onCleanup, For, createEffect, createResource, Show, createMemo } from "solid-js";
 import { getSheetData } from "../server/score"; 
-import { marked } from "marked"; // Ensure you run: npm install marked
+import { marked } from "marked"; 
 import "./index.css";
 
 // --- CONFIGURATION: Schedule Data ---
@@ -73,8 +73,11 @@ export default function Home() {
   const [lastUpdated, setLastUpdated] = createSignal("...");
   const [currentDayIndex, setCurrentDayIndex] = createSignal(0);
   
-  // Controls the "Load More" button in Gallery
+  // Controls Gallery "Load More"
   const [isGalleryExpanded, setIsGalleryExpanded] = createSignal(false);
+  
+  // --- NEW: Controls which image is open in the modal ---
+  const [selectedImage, setSelectedImage] = createSignal<GalleryImage | null>(null);
 
   createEffect(() => {
     if (!resource.error && resource()) {
@@ -182,13 +185,12 @@ export default function Home() {
   const nextDay = () => setCurrentDayIndex((prev) => (prev + 1) % SCHEDULE_DATA.length);
   const prevDay = () => setCurrentDayIndex((prev) => (prev - 1 + SCHEDULE_DATA.length) % SCHEDULE_DATA.length);
 
-  // --- SLICE IMAGES FOR "LOAD MORE" ---
   const displayedImages = createMemo(() => {
     const images = viewData()?.galleryImages || [];
     if (isGalleryExpanded()) {
         return images;
     }
-    return images.slice(0, 5); // Show only first 5
+    return images.slice(0, 5);
   });
 
   return (
@@ -240,12 +242,9 @@ export default function Home() {
         </section>
 
         <section id="Live-section" class="live-section" style="position: relative;">
-          
-          {/* --- FIX: UPDATED INDICATOR CLASS (See CSS) --- */}
           <div class="last-updated-indicator">
             Last updated: {lastUpdated()}
           </div>
-
           <div id="Header">
             <button class="Live-Nav-Button" onClick={prevDay}>
               <img src="/assets/Icons/Arrow_Back.svg" class="back-arrow" />
@@ -316,7 +315,10 @@ export default function Home() {
             >
               <For each={displayedImages()}>
                 {(img) => (
-                  <div class="gallery-item">
+                  <div 
+                    class="gallery-item" 
+                    onClick={() => setSelectedImage(img)} // --- CLICK TO OPEN MODAL ---
+                  >
                     <img 
                       src={img.url} 
                       alt={img.name} 
@@ -361,7 +363,7 @@ export default function Home() {
         </section>
 
         <section id="Announcements" class="announcement-section" style="background: rgba(255, 255, 255, 0.9); padding: 4rem 2rem; min-height: 50vh;">
-          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2rem; text-transform: uppercase;">
+          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2.5rem; text-transform: uppercase;">
             Announcements
           </h2>
           <div class="announcements-list" style="display: flex; flex-direction: column; gap: 2rem; max-width: 900px; margin: 0 auto;">
@@ -399,6 +401,43 @@ export default function Home() {
         </section>
 
       </Show>
+
+      {/* --- NEW: LIGHTBOX MODAL --- */}
+      <Show when={selectedImage()}>
+        <div 
+            class="image-modal-overlay" 
+            onClick={() => setSelectedImage(null)} // Click outside to close
+        >
+            <div 
+                class="image-modal-content" 
+                onClick={(e) => e.stopPropagation()} // Prevent click from closing when clicking image
+            >
+                <button 
+                    class="modal-close-btn" 
+                    onClick={() => setSelectedImage(null)}
+                >
+                    &times;
+                </button>
+                
+                <img 
+                    src={selectedImage()?.url} 
+                    alt="Full view" 
+                    class="image-modal-img"
+                />
+                
+                {/* DOWNLOAD BUTTON: Force download param '=d' */}
+                <a 
+                    href={selectedImage()?.url.replace('=s1000', '=d')} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="modal-download-btn"
+                >
+                    <span style="font-size: 1.2em;">⬇</span> Download
+                </a>
+            </div>
+        </div>
+      </Show>
+
     </main>
   );
 }
