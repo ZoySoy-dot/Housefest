@@ -1,61 +1,85 @@
-/* --- Header Layout (Grid) --- */
+/* =========================================
+   GLOBAL RESET & LAYOUT
+   ========================================= */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevents horizontal scrolling */
+  font-family: 'Arial', sans-serif;
+}
+
+main {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* =========================================
+   HEADER LAYOUT
+   ========================================= */
 #main-header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* Left, Center, Right */
+  grid-template-columns: auto 1fr auto; /* Logos take auto width, center takes rest */
   align-items: center;
-  border-bottom: 3px solid #333; /* Thicker bottom border */
-  padding: 1rem 20px;
+  border-bottom: 3px solid #333;
+  padding: 1rem 10px; /* Reduced padding for mobile */
   background: white;
   color: black;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #main-header #center {
   text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Centers the pill nav horizontally */
+  align-items: center;
+}
+
+#right {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* --- Typography --- */
 #main-header h1 {
-  font-family: 'Arial Black', sans-serif; /* Thick font */
-  font-size: 2.5rem;
+  font-family: 'Arial Black', sans-serif;
+  font-size: 1.5rem; /* Smaller for mobile default */
   text-transform: uppercase;
   margin: 0;
   line-height: 0.9;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 #main-header h6 {
   font-family: 'Arial Black', sans-serif;
-  font-size: 1.2rem;
-  margin: 0px 0 0px 0; /* Space between title and nav */
+  font-size: 0.9rem;
+  margin: 0;
   padding: 0;
 }
 
-/* --- Pill Navigation (The Important Part) --- */
+/* --- Pill Navigation --- */
 .pill-nav {
   display: flex;
-  border: 2.5px solid black; /* Thick border */
-  border-radius: 50px;       /* Pill shape */
+  border: 2px solid black;
+  border-radius: 50px;
   background: white;
-  overflow: hidden;          /* Clips corners */
+  overflow: hidden;
+  margin-top: 5px;
 }
 
 .pill-nav a {
   text-decoration: none;
   color: black;
-  font-family: 'Arial Black', sans-serif; /* Match font */
-  /* CHANGE THESE TWO LINES */
-  font-size: 0.75rem;    /* Smaller text (was 0.9rem) */
-  padding: 5px 20px;     /* Less padding (was 8px 30px) */
-  border-right: 2.5px solid black; /* Vertical dividers */
+  font-family: 'Arial Black', sans-serif;
+  font-size: 0.65rem; /* Compact for mobile */
+  padding: 4px 12px;
+  border-right: 2px solid black;
   display: flex;
   align-items: center;
   transition: background 0.2s;
 }
 
-/* Remove border from the last item so it looks clean */
 .pill-nav a:last-child {
   border-right: none;
 }
@@ -64,43 +88,51 @@
   background: #f0f0f0;
 }
 
-/* --- The Red Dot --- */
 .live-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background-color: red;
   border-radius: 50%;
-  margin-left: 6px;
-  margin-bottom: 5px; /* Pushes it slightly up */
-}
-/* --- Main Section Wrapper --- */
-.score-section {
-  /* Set the background image here */
-  background: url('/assets/DLSUBackground.jpg') no-repeat center center/cover;
-  min-height: 85vh;
-  
-  /* LAYOUT FIX: Spread items across full width */
-  display: flex;
-  justify-content: space-evenly; /* Even spacing between items and edges */
-  align-items: center;
-  width: 100%; /* Ensure it spans the full screen */
-  padding: 0 5%; /* Add 5% padding on sides so they don't touch edges */
-  
-  position: relative;
-  box-sizing: border-box; /* Ensures padding doesn't break width */
+  margin-left: 4px;
+  margin-bottom: 2px;
 }
 
-/* Add a dark overlay so text pops */
+.Header-Logo {
+  width: 50px; /* Smaller logos for mobile */
+  height: auto;
+  border-radius: 100px;
+}
+
+/* =========================================
+   SCORE SECTION (FIXED FOR MOBILE)
+   ========================================= */
+.score-section {
+  background: url('/assests/DLSUBackground.jpg') no-repeat center center/cover;
+  min-height: 85vh;
+  
+  /* Flex Layout */
+  display: flex;
+  justify-content: space-between; /* Distribute space evenly */
+  align-items: flex-end; /* Align bars to bottom */
+  
+  width: 100%;
+  padding: 0 10px 20px 10px; /* Small padding on sides */
+  gap: 8px; /* Small gap between columns */
+  
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Dark Overlay */
 .score-section::before {
   content: "";
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.7); /* Darkens the image by 70% */
+  background: rgba(0, 0, 0, 0.7);
   z-index: 0;
 }
 
-/* Ensure cards sit ON TOP of the overlay */
 .team-container {
   position: relative;
   z-index: 1;
@@ -108,251 +140,264 @@
   flex-direction: column;
   align-items: center;
   
-  /* LAYOUT FIX: Allow them to be responsive */
+  /* RESPONSIVE FIX: Share width equally */
   flex: 1; 
-  max-width: 250px; /* Don't let them get infinitely wide on big screens */
-  min-width: 150px; /* Don't let them get too skinny on small screens */
+  max-width: 25%; /* Ensure they don't overflow */
 }
 
 /* --- The Pillar Card --- */
 .team-card {
   width: 100%;
-  height: 350px;
-  border-radius: 30px;
+  /* Height is handled by inline styles in JS, but we set a default/min */
+  border-radius: 15px; /* Smaller radius for mobile */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  padding: 30px 10px;
-  border: 3px solid white;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-  
-  /* REMOVED: transition and transform */
+  padding: 15px 5px;
+  border: 2px solid white;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+  min-width: 0; /* Allows shrinking below content size */
 }
 
-/* --- Team Specific Colors --- */
-.mutien {
-  background-color: white;
-  color: black;
-  border: 3px solid white;
-}
-
-.benilde {
-  background-color: black;
-  color: white;
-  border: 3px solid #00ffaa; /* That neon green border */
-}
-
-.jaime {
-  background-color: #00ff00; /* Bright Lime Green */
-  color: black;
-  border: 3px solid #00ff00;
-}
-
-.miguel {
-  background-color: #006400; /* Dark Green */
-  color: white;
-  border: 3px solid #00ff00;
-}
+/* --- Team Colors --- */
+.mutien { background-color: white; color: black; border: 2px solid white; }
+.benilde { background-color: black; color: white; border: 2px solid #00ffaa; }
+.jaime { background-color: #00ff00; color: black; border: 2px solid #00ff00; }
+.miguel { background-color: #006400; color: white; border: 2px solid #00ff00; }
 
 /* --- Typography Inside Card --- */
 .placement {
   font-family: 'Arial Black', sans-serif;
-  font-size: 2.5rem;
+  font-size: 1.2rem; /* Smaller for mobile */
   margin: 0;
 }
 
-.bottom-stats {
-  text-align: center;
-}
+.bottom-stats { text-align: center; }
 
 .points {
   font-family: 'Arial Black', sans-serif;
-  font-size: 1.5rem;
+  font-size: 1rem;
   margin: 0;
   line-height: 1;
 }
 
 .points-label {
   font-family: 'Arial Black', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.5rem;
   text-transform: uppercase;
 }
 
 /* --- Team Name Below Card --- */
 .team-name {
   font-family: 'Arial Black', sans-serif;
-  font-size: 2rem;
+  font-size: 0.7rem; /* Fits on mobile screen */
   color: white;
-  margin-top: 15px;
+  margin-top: 8px;
   text-transform: uppercase;
-  text-shadow: 2px 2px 0px black; /* Outline effect */
-}
-.Header-Logo {
-  width: 80px;
-  height: auto;
-  border-radius: 100px;
-  margin: 0px;
-  padding:0px;
-}
-/* Add this to your CSS */
-#right {
-  display: flex;
-  justify-content: flex-end; /* Pushes the logo to the far right */
-}
-#Live-section {
-  /* Keep your background */
-  background: url('/path-to-your-night-building.jpg') no-repeat center center/cover;
-  min-height: 85vh;
+  text-shadow: 1px 1px 0px black;
+  text-align: center;
   
-  /* LAYOUT FIXES START HERE */
-  display: flex;
-  flex-direction: column;     /* Stack Header on top of Bulletin Board */
-  justify-content: flex-start; /* Force items to start at the very top */
-  align-items: center;         /* Center items horizontally */
-  
+  /* Prevent text overflow */
   width: 100%;
-  padding: 0; /* Remove top padding if you want it flush against the nav */
-  
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================
+   LIVE SECTION / BULLETIN BOARD
+   ========================================= */
+#Live-section {
+  background: #222; /* Fallback color */
+  min-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  padding: 0;
   position: relative;
   box-sizing: border-box;
 }
+
 #Live-section #Header {
   display: flex;
   justify-content: center;
-  align-items: center; /* Vertically center the text/buttons inside the header */
-  
-  /* Fixed height or auto, but don't use % if you want exact control */
+  align-items: center;
   height: auto; 
-  padding: 1rem 0; /* Add padding for breathing room */
+  padding: 1rem 0;
   width: 100%;
-  
-  /* Optional background to make it visible against the image */
   background: rgba(255, 255, 255, 0.1); 
-  flex-shrink: 0; /* Prevents header from shrinking */
+  flex-shrink: 0;
+  color: white;
+  font-family: 'Arial Black', sans-serif;
 }
-#Live-section .Live-Nav-Button{
+
+#Live-section .Live-Nav-Button {
   background: none;
   border: none;
+  cursor: pointer;
 }
-/* --- THE GRAY BOARD CONTAINER --- */
+
+/* --- Bulletin Board Container --- */
 #Live-section #Bulletin-Board {
-  /* 1. Appearance */
-  background-color: rgba(255, 255, 255, 0.9); /* White/Gray background */
-  border-radius: 40px;                        /* Squircle shape */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Soft shadow */
+  background-color: rgb(0, 88, 27);
+  border-radius: 20px 20px 0 0; /* Rounded top only looks nice on mobile list */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  margin: 0; /* Flush to edges on mobile */
+  padding: 20px 10px;
+  width: 100%;
+  flex-grow: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
 
-  /* 2. Positioning & Size */
-  margin: 0 20px 20px 20px; /* Margin outside the board */
-  padding: 40px;            /* Padding inside the board (breathing room) */
-  width: 95%;              /* Let flex-grow handle the width relative to margins */
-  flex-grow: 1;             /* Fills the remaining vertical space */
-  overflow-y: auto;         /* Scroll if content overflows vertically */
-
-  /* 3. Grid Layout (Max 3 Columns) */
+  /* Grid Layout: 1 Column on Mobile */
   display: grid;
-  /* strictly 3 columns equal width */
-  grid-template-columns: repeat(3, 1fr); 
-  /* Responsive option (if preferred): repeat(auto-fit, minmax(30%, 1fr)) */
-  
-  gap: 30px;                /* Space between cards */
-  justify-items: center;    /* Centers the cards horizontally in their slot */
-  align-content: start;     /* Starts items at the top */
+  grid-template-columns: 1fr; 
+  gap: 15px;
+  justify-items: center;
+  align-content: start;
 }
 
-/* --- THE INDIVIDUAL ENTRIES (CARDS) --- */
+/* --- Individual Entry Cards --- */
 .bulletin-entry {
-  /* 1. Size */
-  width: 400px;
-  height: 200px;
+  width: 100%;
+  max-width: 400px; /* Don't get wider than this */
+  height: auto; /* Allow height to fit content */
+  min-height: 180px;
 
-  /* 2. Appearance */
   background-color: white;
   border: 1px solid #ccc;
   border-radius: 15px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  overflow: hidden; /* Ensures child elements don't spill out of rounded corners */
+  overflow: hidden;
 
-  /* 3. Layout Fix: Stack vertically from the TOP */
-  display: flex;
-  flex-direction: column; 
-  justify-content: flex-start; /* Pushes content to the TOP */
-  align-items: stretch;        /* Stretches content to full width */
-  
-  margin: 0;
-  padding: 0; /* Remove padding here so header touches the edges */
-}
-
-/* Header Section */
-.bulletin-entry .entry-header {
-  background-color: #f8f9fa; /* Optional: Light gray background for header area */
-  padding: 15px;             /* Add padding INSIDE the header */
-  padding-bottom: 5px;
-  border-bottom: 2px solid black; /* Thicker separator line */
-  
   display: flex;
   flex-direction: column;
-  gap: 5px; /* Spacing between title, text, and time */
-  
+  justify-content: flex-start;
 }
 
-/* Title */
+.bulletin-entry .entry-header {
+  background-color: #f8f9fa;
+  padding: 10px 15px;
+  border-bottom: 2px solid black;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .bulletin-entry .entry-title {
   font-family: 'Arial Black', sans-serif;
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   margin: 0;
-  line-height: 1.2;
 }
 
-/* Content Text */
-.bulletin-entry .entry-content {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #333;
-}
-
-/* Timestamp */
-.bulletin-entry .entry-timestamp {
+.bulletin-entry .entry-content p {
   font-size: 0.75rem;
-  color: #666;
-  text-align: right; /* Puts time on the right side */
-  margin-top: 5px;
+  margin: 2px 0;
 }
 
-/* Empty Body for future content */
 .bulletin-entry .bulletin-body {
-  flex-grow: 1; /* Takes up remaining space */
+  padding: 10px 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
-  margin-left: 1rem;
-  margin-right: 1rem;
+  gap: 5px;
 }
-.bulletin-body-team-entry{
+
+.bulletin-body-team-entry {
   font-family: 'Arial Black', sans-serif;
   display: flex;
   justify-content: space-between;
-  padding: 0.1rem 0px 0px 0px;
-  margin: 0 1rem 0 0px
+  align-items: center;
+  padding: 2px 0;
+  margin: 0 1rem;
+  font-size: 0.75rem;
 }
-.bulletin-body-team-entry-team-name{
-  font-size: 0.5em;
-  width: 4rem;
-  font-size: 0.8rem;
-  width: 50%;
+
+.bulletin-body-team-entry-team-name {
+  font-size: 0.7rem;
+  width: 45%;
   border-right: solid black 1px;
 }
-.bulletin-body-team-entry-team-points{
-  font-size: 0.5em;
-  width: 2rem;
-  font-size: 0.8rem;
+
+.bulletin-body-team-entry .team-score-w, 
+.bulletin-body-team-entry .team-score-l {
+  font-weight: bold;
+  font-size: 0.75rem;
+  text-align: center;
+  width: 15%;
+}
+
+.bulletin-body-team-entry .team-score-rank {
+  font-size: 0.75rem;
+  width: 15%;
   text-align: right;
 }
-.bulletin-body-team-entry .team-score-w, .team-score-l{
-  font-weight: bold;
-  font-size: 0.8rem;
-  width: 10%;
-}
-.entry-content p{
-  font-size: 0.6rem;
+
+/* =========================================
+   DESKTOP / TABLET OVERRIDES (Min-width 768px)
+   Restore the "Big" look for larger screens
+   ========================================= */
+/* =========================================
+   DESKTOP / TABLET OVERRIDES (Min-width 768px)
+   ========================================= */
+@media (min-width: 768px) {
+  
+  /* Header */
+  #main-header {
+    grid-template-columns: 1fr auto 1fr;
+    padding: 1rem 20px;
+  }
+  .Header-Logo { width: 80px; }
+  #main-header h1 { font-size: 2.5rem; }
+  #main-header h6 { font-size: 1.2rem; }
+  .pill-nav a { font-size: 0.9rem; padding: 8px 30px; }
+
+  /* Score Section */
+  .score-section {
+    justify-content: space-evenly;
+    padding: 0 5%;
+    gap: 30px;
+    align-items: center; 
+  }
+  
+  .team-container {
+    max-width: 250px; 
+  }
+  
+  .team-card {
+    border-radius: 30px;
+    padding: 30px 10px;
+    border: 3px solid white;
+  }
+  
+  .placement { font-size: 2.5rem; }
+  .points { font-size: 1.5rem; }
+  .points-label { font-size: 0.8rem; }
+  .team-name { font-size: 2rem; margin-top: 15px; }
+
+  /* Bulletin Board */
+  #Live-section #Bulletin-Board {
+    border-radius: 40px;
+    margin: 0 20px 20px 20px;
+    padding: 40px;
+    width: 95%;
+    
+    /* 3 Columns on Desktop */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+  }
+  
+  /* --- CRITICAL FIX HERE --- */
+  .bulletin-entry {
+    width: 100%;          /* Fill the grid column */
+    max-width: 400px;     /* Don't get too wide */
+    
+    /* Change fixed height to auto so it grows to fit all 4 teams */
+    height: auto !important; 
+    min-height: 200px;    /* Keeps them looking uniform if empty */
+  }
+  
+  .bulletin-entry .entry-title { font-size: 1.4rem; }
 }
