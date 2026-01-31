@@ -77,7 +77,7 @@
 /* --- Main Section Wrapper --- */
 .score-section {
   /* Set the background image here */
-  background: url('assets/DLSUBackground.jpg') no-repeat center center/cover;
+  background: url('/assets/DLSUBackground.jpg') no-repeat center center/cover;
   min-height: 85vh;
   
   /* LAYOUT FIX: Spread items across full width */
