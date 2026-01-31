@@ -40,7 +40,7 @@ const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?:
     "MUTIEN": { 
         color: "#ffffff", 
         gradient: "linear-gradient(90deg, #ffffff 0%, #e0e0e0 100%)",
-        textColor: "black" // Dark text for white background
+        textColor: "black" 
     },
     "BENILDE": { 
         color: "#000000", 
@@ -177,7 +177,7 @@ export default function Home() {
       <Title>DLSU Housefest</Title>
       
       <header id="main-header">
-        <div id="left"><img src="/src/assests/SC_Logo.svg" alt="" class="Header-Logo" /></div>
+        <div id="left"><img src="/assets/SC_Logo.svg" alt="" class="Header-Logo" /></div>
         <div id="center">
           <h1>HOUSEFEST</h1>
           <h6>2025-2026</h6>
@@ -189,7 +189,7 @@ export default function Home() {
             <a href="#About">INFO</a>
           </nav>
         </div>
-        <div id="right"><img src="/src/assests/DLSU_Logo.svg" alt="" class="Header-Logo" /></div>
+        <div id="right"><img src="/assets/DLSU_Logo.svg" alt="" class="Header-Logo" /></div>
       </header>
 
       <Show when={viewData()} fallback={<div class="loading-screen">Loading Scores...</div>}>
@@ -240,11 +240,11 @@ export default function Home() {
 
           <div id="Header">
             <button class="Live-Nav-Button" onClick={prevDay}>
-              <img src="/src/assests/Icons/Arrow_Back.svg" class="back-arrow" />
+              <img src="/assets/Icons/Arrow_Back.svg" class="back-arrow" />
             </button>
             <h3>{SCHEDULE_DATA[currentDayIndex()].date}</h3>
             <button class="Live-Nav-Button" onClick={nextDay}>
-              <img src="/src/assests/Icons/Arrow_Forward.svg" class="forward-arrow" />
+              <img src="/assets/Icons/Arrow_Forward.svg" class="forward-arrow" />
             </button>
           </div>
 

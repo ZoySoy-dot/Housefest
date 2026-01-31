@@ -7,10 +7,12 @@ const SPREADSHEET_ID = "11AtJle3iUOc1tD0Pcpf2UvSY9dtf4VqNEp0ZIdRNbCo";
 const MATCH_RESULTS_RANGE = "Match_Results!A2:E"; 
 const OVERALL_RANGE = "Overall_Standings!A2:C"; 
 
-// ADD THIS: Create serviceAccount object from ENV variables
+const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+
 const serviceAccount = {
-  client_email: process.env.GOOGLE_CLIENT_EMAIL!,
-  private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+  client_email: process.env.GOOGLE_CLIENT_EMAIL || '',
+  // Add a fallback to an empty string to prevent the .replace() crash
+  private_key: privateKey ? privateKey.replace(/\\n/g, '\n') : undefined,
 };
 
 // We accept a dummy '_t' timestamp to force unique requests
