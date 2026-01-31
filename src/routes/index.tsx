@@ -3,7 +3,7 @@ import { createSignal, onCleanup, For, createEffect, createResource, Show } from
 import { getSheetData } from "../server/score"; 
 import "./index.css";
 
-// --- CONFIGURATION: Schedule Data ---
+// ... (Keep your SCHEDULE_DATA and TEAMS constants exactly the same as before) ...
 const SCHEDULE_DATA = [
   {
     date: "February 4 (Day 1)",
@@ -35,7 +35,7 @@ const SCHEDULE_DATA = [
 
 const TEAMS = ["MUTIEN", "BENILDE", "JAIME", "MIGUEL"];
 
-// --- UPDATED: Team Gradients Configuration ---
+// ... (Keep TEAM_CONFIG exactly the same) ...
 const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?: string }> = {
     "MUTIEN": { 
         color: "#ffffff", 
@@ -159,14 +159,39 @@ export default function Home() {
     };
   };
 
-  const getHeightByRank = (rank: number) => {
-    switch (rank) {
-      case 1: return "22rem"; 
-      case 2: return "18rem";
-      case 3: return "15rem";
-      case 4: return "12rem"; 
-      default: return "12rem";
-    }
+  // --- 1. Find the Highest Score ---
+  const getMaxPoints = (overallRows: string[][] | undefined) => {
+    if (!overallRows) return 1; 
+    
+    const allScores = TEAMS.map(t => {
+        const cleanTeam = t.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const row = overallRows.find(r => 
+          (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "") === cleanTeam
+        );
+        return parseInt(row ? row[1] : "0") || 0;
+    });
+
+    return Math.max(...allScores) || 1; 
+  };
+
+  // --- 2. Calculate Height with a "Visual Cap" ---
+  const getHeightProportional = (pointsStr: string, maxPoints: number) => {
+    const points = parseInt(pointsStr) || 0;
+    
+    // --- CONFIG: Change these to control bar size ---
+    const VISUAL_CEILING = 22; // The bar will NEVER exceed 22rem
+    const VISUAL_FLOOR = 10;   // The bar will NEVER be shorter than 10rem
+    // ------------------------------------------------
+
+    if (maxPoints === 0) return `${VISUAL_FLOOR}rem`;
+
+    // Calculate percentage (0.0 to 1.0)
+    // Math.min(..., 1) ensures we never go above 100% even if data glitches
+    const ratio = Math.min(points / maxPoints, 1);
+    
+    const calculatedHeight = VISUAL_FLOOR + (ratio * (VISUAL_CEILING - VISUAL_FLOOR));
+    
+    return `${calculatedHeight}rem`;
   };
 
   const nextDay = () => setCurrentDayIndex((prev) => (prev + 1) % SCHEDULE_DATA.length);
@@ -198,13 +223,16 @@ export default function Home() {
           <For each={TEAMS}>
             {(team) => {
               const stats = () => getCalculatedTeamStats(viewData()?.overallRows, team);
+              const currentMaxPoints = getMaxPoints(viewData()?.overallRows);
+
               return (
                 <div class="team-container">
                   <div 
                     class={`team-card ${team.toLowerCase()}`}
                     style={{ 
-                        height: getHeightByRank(stats().rankNum),
-                        transition: "height 0.5s ease"
+                        // The height is now safely clamped between 10rem and 22rem
+                        height: getHeightProportional(stats().points, currentMaxPoints),
+                        transition: "height 0.8s ease-out"
                     }}
                   >
                     <h1 class="placement">{stats().rankStr}</h1>
@@ -220,6 +248,7 @@ export default function Home() {
           </For>
         </section>
 
+        {/* ... (The rest of your Live-section code remains unchanged) ... */}
         <section id="Live-section" class="live-section" style="position: relative;">
           
           <div 
