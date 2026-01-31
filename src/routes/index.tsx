@@ -1,9 +1,10 @@
 import { Title } from "@solidjs/meta";
-import { createSignal, onCleanup, For, createEffect, createResource, Show } from "solid-js";
+import { createSignal, onCleanup, For, createEffect, createResource, Show, createMemo } from "solid-js";
 import { getSheetData } from "../server/score"; 
+import { marked } from "marked"; // Ensure you installed this: npm install marked
 import "./index.css";
 
-// ... (Keep your SCHEDULE_DATA and TEAMS constants exactly the same as before) ...
+// --- CONFIGURATION: Schedule Data ---
 const SCHEDULE_DATA = [
   {
     date: "February 4 (Day 1)",
@@ -35,7 +36,7 @@ const SCHEDULE_DATA = [
 
 const TEAMS = ["MUTIEN", "BENILDE", "JAIME", "MIGUEL"];
 
-// ... (Keep TEAM_CONFIG exactly the same) ...
+// --- UPDATED: Team Gradients Configuration ---
 const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?: string }> = {
     "MUTIEN": { 
         color: "#ffffff", 
@@ -62,7 +63,15 @@ const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?:
 type SheetData = {
   matchRows: string[][];
   overallRows: string[][];
+  announcements: string[][]; // Added this!
 };
+
+type Announcement = {
+  date: string;
+  title: string;
+  message: string;
+  category: string;
+}
 
 const fetchSheetData = async (): Promise<SheetData> => {
   return await getSheetData(Date.now());
@@ -93,42 +102,42 @@ export default function Home() {
     onCleanup(() => clearInterval(timer));
   });
 
-  const getEventStats = (matchRows: string[][] | undefined, eventId: string, teamName: string) => {
-    if (!matchRows) return { wins: "-", losses: "-", rank: "-" }; 
+  // --- LOGIC: Group Announcements by Category ---
+  const groupedAnnouncements = createMemo(() => {
+    const rawData = viewData()?.announcements || [];
+    const groups: Record<string, Announcement[]> = {};
 
-    const cleanId = eventId.toLowerCase().replace(/[^a-z0-9]/g, ""); 
-    const cleanTeam = teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    rawData.forEach(row => {
+      // Assuming Sheet Columns: [0] Date, [1] Title, [2] Message, [3] Category
+      const post: Announcement = {
+        date: row[0] || "",
+        title: row[1] || "No Title",
+        message: row[2] || "",
+        category: row[3] || "General Updates"
+      };
 
-    const row = matchRows.find(r => {
-      const sheetId = (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
-      const sheetTeam = (r[1] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
-      return sheetId === cleanId && sheetTeam === cleanTeam;
+      if (!groups[post.category]) {
+        groups[post.category] = [];
+      }
+      groups[post.category].push(post);
     });
 
-    return {
-      wins: row ? row[2] : "-",
-      losses: row ? row[3] : "-",
-      rank: row ? row[4] : "Nth"
-    };
-  };
+    return groups;
+  });
 
-  const getSortedEventTeams = (matchRows: string[][] | undefined, eventId: string) => {
-    const teamStats = TEAMS.map(team => {
-        const stats = getEventStats(matchRows, eventId, team);
-        return { name: team, ...stats };
+  // --- HELPER: Get Max Points for Scaling ---
+  const getMaxPoints = (overallRows: string[][] | undefined) => {
+    if (!overallRows) return 1; 
+    
+    const allScores = TEAMS.map(t => {
+        const cleanTeam = t.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const row = overallRows.find(r => 
+          (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "") === cleanTeam
+        );
+        return parseInt(row ? row[1] : "0") || 0;
     });
 
-    return teamStats.sort((a, b) => {
-        const rankA = parseInt(a.rank) || 999; 
-        const rankB = parseInt(b.rank) || 999;
-        if (rankA !== rankB) return rankA - rankB; 
-
-        const winsA = parseInt(a.wins) || 0;
-        const winsB = parseInt(b.wins) || 0;
-        if (winsA !== winsB) return winsB - winsA; 
-
-        return a.name.localeCompare(b.name); 
-    });
+    return Math.max(...allScores) || 1; 
   };
 
   const getCalculatedTeamStats = (overallRows: string[][] | undefined, teamName: string) => {
@@ -159,39 +168,51 @@ export default function Home() {
     };
   };
 
-  // --- 1. Find the Highest Score ---
-  const getMaxPoints = (overallRows: string[][] | undefined) => {
-    if (!overallRows) return 1; 
-    
-    const allScores = TEAMS.map(t => {
-        const cleanTeam = t.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const row = overallRows.find(r => 
-          (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "") === cleanTeam
-        );
-        return parseInt(row ? row[1] : "0") || 0;
-    });
-
-    return Math.max(...allScores) || 1; 
-  };
-
-  // --- 2. Calculate Height with a "Visual Cap" ---
   const getHeightProportional = (pointsStr: string, maxPoints: number) => {
     const points = parseInt(pointsStr) || 0;
-    
-    // --- CONFIG: Change these to control bar size ---
-    const VISUAL_CEILING = 22; // The bar will NEVER exceed 22rem
-    const VISUAL_FLOOR = 10;   // The bar will NEVER be shorter than 10rem
-    // ------------------------------------------------
+    const VISUAL_CEILING = 22; 
+    const VISUAL_FLOOR = 10;   
 
     if (maxPoints === 0) return `${VISUAL_FLOOR}rem`;
-
-    // Calculate percentage (0.0 to 1.0)
-    // Math.min(..., 1) ensures we never go above 100% even if data glitches
     const ratio = Math.min(points / maxPoints, 1);
-    
     const calculatedHeight = VISUAL_FLOOR + (ratio * (VISUAL_CEILING - VISUAL_FLOOR));
-    
     return `${calculatedHeight}rem`;
+  };
+  
+  const getEventStats = (matchRows: string[][] | undefined, eventId: string, teamName: string) => {
+    if (!matchRows) return { wins: "-", losses: "-", rank: "-" }; 
+
+    const cleanId = eventId.toLowerCase().replace(/[^a-z0-9]/g, ""); 
+    const cleanTeam = teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    const row = matchRows.find(r => {
+      const sheetId = (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const sheetTeam = (r[1] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+      return sheetId === cleanId && sheetTeam === cleanTeam;
+    });
+
+    return {
+      wins: row ? row[2] : "-",
+      losses: row ? row[3] : "-",
+      rank: row ? row[4] : "Nth"
+    };
+  };
+
+  const getSortedEventTeams = (matchRows: string[][] | undefined, eventId: string) => {
+    const teamStats = TEAMS.map(team => {
+        const stats = getEventStats(matchRows, eventId, team);
+        return { name: team, ...stats };
+    });
+
+    return teamStats.sort((a, b) => {
+        const rankA = parseInt(a.rank) || 999; 
+        const rankB = parseInt(b.rank) || 999;
+        if (rankA !== rankB) return rankA - rankB; 
+        const winsA = parseInt(a.wins) || 0;
+        const winsB = parseInt(b.wins) || 0;
+        if (winsA !== winsB) return winsB - winsA; 
+        return a.name.localeCompare(b.name); 
+    });
   };
 
   const nextDay = () => setCurrentDayIndex((prev) => (prev + 1) % SCHEDULE_DATA.length);
@@ -211,7 +232,7 @@ export default function Home() {
             <a href="#Live-section">
                 LIVE <span class="live-dot" title={resource.loading ? "Refreshing..." : "Live"}></span>
             </a>
-            <a href="#About">INFO</a>
+            <a href="#Announcements">INFO</a>
           </nav>
         </div>
         <div id="right"><img src="/assets/DLSU_Logo.svg" alt="" class="Header-Logo" /></div>
@@ -219,6 +240,7 @@ export default function Home() {
 
       <Show when={viewData()} fallback={<div class="loading-screen">Loading Scores...</div>}>
         
+        {/* SCORE SECTION */}
         <section id="Score" class="score-section" style="align-items: flex-end;">
           <For each={TEAMS}>
             {(team) => {
@@ -230,7 +252,6 @@ export default function Home() {
                   <div 
                     class={`team-card ${team.toLowerCase()}`}
                     style={{ 
-                        // The height is now safely clamped between 10rem and 22rem
                         height: getHeightProportional(stats().points, currentMaxPoints),
                         transition: "height 0.8s ease-out"
                     }}
@@ -248,21 +269,11 @@ export default function Home() {
           </For>
         </section>
 
-        {/* ... (The rest of your Live-section code remains unchanged) ... */}
+        {/* LIVE SCHEDULE SECTION */}
         <section id="Live-section" class="live-section" style="position: relative;">
-          
           <div 
             class="last-updated-indicator" 
-            style="
-              position: absolute; 
-              top: 1rem; 
-              left: 1rem; 
-              font-size: 0.75rem; 
-              opacity: 0.7; 
-              font-family: monospace;
-              color: white; 
-              z-index: 10;
-            "
+            style="position: absolute; top: 1rem; left: 1rem; font-size: 0.75rem; opacity: 0.7; font-family: monospace; color: white; z-index: 10;"
           >
             Last updated: {lastUpdated()}
           </div>
@@ -294,11 +305,9 @@ export default function Home() {
                       <For each={getSortedEventTeams(viewData()?.matchRows, event.id)}>
                         {(teamData) => {
                             const config = TEAM_CONFIG[teamData.name];
-                            
                             return (
                                 <div class="bulletin-body-team-entry">
-                                  <p 
-                                    class="bulletin-body-team-entry-team-name"
+                                  <p class="bulletin-body-team-entry-team-name"
                                     style={{ 
                                         "background": config ? config.gradient : "#333",
                                         "color": config?.textColor || "white",
@@ -314,10 +323,8 @@ export default function Home() {
                                   >
                                     {teamData.name}
                                   </p>
-                                  
                                   <p class="team-score-w">W: {teamData.wins}</p>
                                   <p class="team-score-l">L: {teamData.losses}</p>
-                                  
                                   <p class="team-score-rank">{teamData.rank}</p>
                                 </div>
                             );
@@ -330,6 +337,71 @@ export default function Home() {
             </For>
           </div>
         </section>
+
+        {/* ANNOUNCEMENTS SECTION */}
+        <section id="Announcements" class="announcement-section"
+          style="
+            background: rgba(255, 255, 255, 0.9); 
+            padding: 4rem 2rem; 
+            margin-top: 2rem;
+            min-height: 50vh;
+        ">
+          <h2 style="
+             text-align: center; 
+             color: black; 
+             margin-bottom: 2rem; 
+             font-family: 'Arial Black', sans-serif;
+             font-size: 2.5rem; 
+             text-transform: uppercase;
+           ">
+            Announcements
+          </h2>
+
+          <div class="announcements-list" style="display: flex; flex-direction: column; gap: 2rem; max-width: 900px; margin: 0 auto;">
+            <Show when={Object.keys(groupedAnnouncements()).length > 0} fallback={<div style="text-align: center; color: black;">No announcements yet.</div>}>
+                <For each={Object.keys(groupedAnnouncements())}>
+                {(category) => (
+                    <div class="announcement-category">
+                    {/* Category Header */}
+                    <h3 style="
+                        color: black; 
+                        border-bottom: 3px solid black; 
+                        padding-bottom: 0.5rem; 
+                        margin-bottom: 1.5rem; 
+                        font-family: 'Arial Black', sans-serif;
+                        font-size: 1.5rem;
+                        text-transform: uppercase;
+                        ">
+                        {category}
+                    </h3>
+
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <For each={groupedAnnouncements()[category]}>
+                        {(post) => (
+                            <div class="bulletin-entry announcement-card" style="height: auto; min-height: auto;">
+                                <div class="entry-header">
+                                    <h1 class="entry-title" style="color: black; font-size: 1.2rem;">{post.title}</h1>
+                                    <span class="entry-content">
+                                    <p class="entry-content-time" style="font-size: 0.8rem; font-weight: bold; margin: 0; color: #555;">
+                                        {post.date || "Update"}
+                                    </p>
+                                    </span>
+                                </div>
+                                <div class="bulletin-body" style="padding: 15px; color: black; font-family: Arial, sans-serif;">
+                                    {/* Safe markdown rendering or fallback to text */}
+                                    <div innerHTML={marked ? marked.parse(post.message || "") : post.message} />
+                                </div>
+                            </div>
+                        )}
+                        </For>
+                    </div>
+                    </div>
+                )}
+                </For>
+            </Show>
+          </div>
+        </section>
+
       </Show>
     </main>
   );
