@@ -4,8 +4,9 @@
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Prevents horizontal scrolling */
+  overflow-x: hidden;
   font-family: 'Arial', sans-serif;
+  background-color: #f4f4f4;
 }
 
 main {
@@ -19,14 +20,17 @@ main {
    ========================================= */
 #main-header {
   display: grid;
-  grid-template-columns: auto 1fr auto; /* Logos take auto width, center takes rest */
+  grid-template-columns: auto 1fr auto; 
   align-items: center;
   border-bottom: 3px solid #333;
-  padding: 1rem 10px; /* Reduced padding for mobile */
+  padding: 1rem 10px;
   background: white;
   color: black;
   width: 100%;
   box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 #main-header #center {
@@ -41,10 +45,9 @@ main {
   justify-content: flex-end;
 }
 
-/* --- Typography --- */
 #main-header h1 {
   font-family: 'Arial Black', sans-serif;
-  font-size: 1.5rem; /* Smaller for mobile default */
+  font-size: 1.5rem; 
   text-transform: uppercase;
   margin: 0;
   line-height: 0.9;
@@ -58,7 +61,6 @@ main {
   padding: 0;
 }
 
-/* --- Pill Navigation --- */
 .pill-nav {
   display: flex;
   border: 2px solid black;
@@ -72,7 +74,7 @@ main {
   text-decoration: none;
   color: black;
   font-family: 'Arial Black', sans-serif;
-  font-size: 0.65rem; /* Compact for mobile */
+  font-size: 0.65rem; 
   padding: 4px 12px;
   border-right: 2px solid black;
   display: flex;
@@ -80,13 +82,8 @@ main {
   transition: background 0.2s;
 }
 
-.pill-nav a:last-child {
-  border-right: none;
-}
-
-.pill-nav a:hover {
-  background: #f0f0f0;
-}
+.pill-nav a:last-child { border-right: none; }
+.pill-nav a:hover { background: #f0f0f0; }
 
 .live-dot {
   display: inline-block;
@@ -99,32 +96,27 @@ main {
 }
 
 .Header-Logo {
-  width: 50px; /* Smaller logos for mobile */
+  width: 50px;
   height: auto;
   border-radius: 100px;
 }
 
 /* =========================================
-   SCORE SECTION (FIXED FOR MOBILE)
+   SCORE SECTION
    ========================================= */
 .score-section {
   background: url('/assets/DLSUBackground.jpg') no-repeat center center/cover;
   min-height: 85vh;
-  
-  /* Flex Layout */
   display: flex;
-  justify-content: space-between; /* Distribute space evenly */
-  align-items: flex-end; /* Align bars to bottom */
-  
+  justify-content: space-between;
+  align-items: flex-end;
   width: 100%;
-  padding: 0 10px 20px 10px; /* Small padding on sides */
-  gap: 8px; /* Small gap between columns */
-  
+  padding: 0 10px 20px 10px;
+  gap: 8px;
   position: relative;
   box-sizing: border-box;
 }
 
-/* Dark Overlay */
 .score-section::before {
   content: "";
   position: absolute;
@@ -139,17 +131,13 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  
-  /* RESPONSIVE FIX: Share width equally */
   flex: 1; 
-  max-width: 25%; /* Ensure they don't overflow */
+  max-width: 25%;
 }
 
-/* --- The Pillar Card --- */
 .team-card {
   width: 100%;
-  /* Height is handled by inline styles in JS, but we set a default/min */
-  border-radius: 15px; /* Smaller radius for mobile */
+  border-radius: 15px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -157,48 +145,27 @@ main {
   padding: 15px 5px;
   border: 2px solid white;
   box-shadow: 0 5px 10px rgba(0,0,0,0.5);
-  min-width: 0; /* Allows shrinking below content size */
+  min-width: 0;
 }
 
-/* --- Team Colors --- */
 .mutien { background-color: white; color: black; border: 2px solid white; }
 .benilde { background-color: black; color: white; border: 2px solid #00ffaa; }
 .jaime { background-color: #00ff00; color: black; border: 2px solid #00ff00; }
 .miguel { background-color: #006400; color: white; border: 2px solid #00ff00; }
 
-/* --- Typography Inside Card --- */
-.placement {
-  font-family: 'Arial Black', sans-serif;
-  font-size: 1.2rem; /* Smaller for mobile */
-  margin: 0;
-}
-
+.placement { font-family: 'Arial Black', sans-serif; font-size: 1.2rem; margin: 0; }
 .bottom-stats { text-align: center; }
+.points { font-family: 'Arial Black', sans-serif; font-size: 1rem; margin: 0; line-height: 1; }
+.points-label { font-family: 'Arial Black', sans-serif; font-size: 0.5rem; text-transform: uppercase; }
 
-.points {
-  font-family: 'Arial Black', sans-serif;
-  font-size: 1rem;
-  margin: 0;
-  line-height: 1;
-}
-
-.points-label {
-  font-family: 'Arial Black', sans-serif;
-  font-size: 0.5rem;
-  text-transform: uppercase;
-}
-
-/* --- Team Name Below Card --- */
 .team-name {
   font-family: 'Arial Black', sans-serif;
-  font-size: 0.7rem; /* Fits on mobile screen */
+  font-size: 0.7rem;
   color: white;
   margin-top: 8px;
   text-transform: uppercase;
   text-shadow: 1px 1px 0px black;
   text-align: center;
-  
-  /* Prevent text overflow */
   width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -209,7 +176,7 @@ main {
    LIVE SECTION / BULLETIN BOARD
    ========================================= */
 #Live-section {
-  background: #222; /* Fallback color */
+  background: #222;
   min-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -234,25 +201,18 @@ main {
   font-family: 'Arial Black', sans-serif;
 }
 
-#Live-section .Live-Nav-Button {
-  background: none;
-  border: none;
-  cursor: pointer;
-}
+#Live-section .Live-Nav-Button { background: none; border: none; cursor: pointer; }
 
-/* --- Bulletin Board Container --- */
 #Live-section #Bulletin-Board {
   background-color: rgb(0, 88, 27);
-  border-radius: 20px 20px 0 0; /* Rounded top only looks nice on mobile list */
+  border-radius: 20px 20px 0 0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  margin: 0; /* Flush to edges on mobile */
+  margin: 0;
   padding: 20px 10px;
   width: 100%;
   flex-grow: 1;
   overflow-y: auto;
   box-sizing: border-box;
-
-  /* Grid Layout: 1 Column on Mobile */
   display: grid;
   grid-template-columns: 1fr; 
   gap: 15px;
@@ -260,19 +220,16 @@ main {
   align-content: start;
 }
 
-/* --- Individual Entry Cards --- */
 .bulletin-entry {
   width: 100%;
-  max-width: 400px; /* Don't get wider than this */
-  height: auto; /* Allow height to fit content */
+  max-width: 400px;
+  height: auto; 
   min-height: 180px;
-
   background-color: white;
   border: 1px solid #ccc;
   border-radius: 15px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
   overflow: hidden;
-
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -287,23 +244,9 @@ main {
   gap: 2px;
 }
 
-.bulletin-entry .entry-title {
-  font-family: 'Arial Black', sans-serif;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.bulletin-entry .entry-content p {
-  font-size: 0.75rem;
-  margin: 2px 0;
-}
-
-.bulletin-entry .bulletin-body {
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+.bulletin-entry .entry-title { font-family: 'Arial Black', sans-serif; font-size: 1.1rem; margin: 0; }
+.bulletin-entry .entry-content p { font-size: 0.75rem; margin: 2px 0; }
+.bulletin-entry .bulletin-body { padding: 10px 0; display: flex; flex-direction: column; gap: 5px; }
 
 .bulletin-body-team-entry {
   font-family: 'Arial Black', sans-serif;
@@ -315,89 +258,120 @@ main {
   font-size: 0.75rem;
 }
 
-.bulletin-body-team-entry-team-name {
-  font-size: 0.7rem;
-  width: 45%;
-  border-right: solid black 1px;
-}
-
+.bulletin-body-team-entry-team-name { font-size: 0.7rem; width: 45%; border-right: solid black 1px; }
 .bulletin-body-team-entry .team-score-w, 
-.bulletin-body-team-entry .team-score-l {
-  font-weight: bold;
-  font-size: 0.75rem;
-  text-align: center;
-  width: 15%;
+.bulletin-body-team-entry .team-score-l { font-weight: bold; font-size: 0.75rem; text-align: center; width: 15%; }
+.bulletin-body-team-entry .team-score-rank { font-size: 0.75rem; width: 15%; text-align: right; }
+
+/* =========================================
+   GALLERY SECTION
+   ========================================= */
+.gallery-section {
+  background: #111;
+  padding: 4rem 1rem;
+  min-height: 50vh;
+  color: white;
 }
 
-.bulletin-body-team-entry .team-score-rank {
-  font-size: 0.75rem;
-  width: 15%;
-  text-align: right;
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.gallery-item {
+  position: relative;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  background: #222;
+}
+
+.gallery-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.gallery-item:hover .gallery-img {
+  transform: scale(1.1);
 }
 
 /* =========================================
-   DESKTOP / TABLET OVERRIDES (Min-width 768px)
-   Restore the "Big" look for larger screens
+   RESPONSIVE FIX: LAST UPDATED INDICATOR
    ========================================= */
+.last-updated-indicator {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  font-family: monospace;
+  color: white;
+  z-index: 10;
+  
+  /* Mobile Default: Stack it at the top center */
+  position: relative; 
+  width: 100%;
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: -10px; /* Pull header slightly closer */
+}
+
 /* =========================================
    DESKTOP / TABLET OVERRIDES (Min-width 768px)
    ========================================= */
 @media (min-width: 768px) {
   
-  /* Header */
-  #main-header {
-    grid-template-columns: 1fr auto 1fr;
-    padding: 1rem 20px;
+  /* Desktop Last Updated: Float it to the corner */
+  .last-updated-indicator {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: auto;
+    text-align: left;
+    margin: 0;
   }
+
+  #main-header { grid-template-columns: 1fr auto 1fr; padding: 1rem 20px; }
   .Header-Logo { width: 80px; }
   #main-header h1 { font-size: 2.5rem; }
   #main-header h6 { font-size: 1.2rem; }
   .pill-nav a { font-size: 0.9rem; padding: 8px 30px; }
 
-  /* Score Section */
-  .score-section {
-    justify-content: space-evenly;
-    padding: 0 5%;
-    gap: 30px;
-    align-items: center; 
-  }
-  
-  .team-container {
-    max-width: 250px; 
-  }
-  
-  .team-card {
-    border-radius: 30px;
-    padding: 30px 10px;
-    border: 3px solid white;
-  }
+  .score-section { justify-content: space-evenly; padding: 0 5%; gap: 30px; align-items: center; }
+  .team-container { max-width: 250px; }
+  .team-card { border-radius: 30px; padding: 30px 10px; border: 3px solid white; }
   
   .placement { font-size: 2.5rem; }
   .points { font-size: 1.5rem; }
   .points-label { font-size: 0.8rem; }
   .team-name { font-size: 2rem; margin-top: 15px; }
 
-  /* Bulletin Board */
   #Live-section #Bulletin-Board {
     border-radius: 40px;
     margin: 0 20px 20px 20px;
     padding: 40px;
     width: 95%;
-    
-    /* 3 Columns on Desktop */
     grid-template-columns: repeat(3, 1fr);
     gap: 30px;
   }
   
-  /* --- CRITICAL FIX HERE --- */
   .bulletin-entry {
-    width: 100%;          /* Fill the grid column */
-    max-width: 400px;     /* Don't get too wide */
-    
-    /* Change fixed height to auto so it grows to fit all 4 teams */
+    width: 400px;
+    max-width: none;
     height: auto !important; 
-    min-height: 200px;    /* Keeps them looking uniform if empty */
+    min-height: 200px;
   }
   
   .bulletin-entry .entry-title { font-size: 1.4rem; }
+
+  /* Gallery Desktop */
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+  }
+  .gallery-item { height: 250px; border-radius: 12px; }
 }
