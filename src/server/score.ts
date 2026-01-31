@@ -1,10 +1,17 @@
 import { google } from "googleapis";
 import { getRequestEvent } from "solid-js/web";
-import serviceAccount from "../../service-account.json"; 
+
+// REMOVE: import serviceAccount from "../../service-account.json"; 
 
 const SPREADSHEET_ID = "11AtJle3iUOc1tD0Pcpf2UvSY9dtf4VqNEp0ZIdRNbCo";
 const MATCH_RESULTS_RANGE = "Match_Results!A2:E"; 
-const OVERALL_RANGE = "Overall_Standings!A2:C";   
+const OVERALL_RANGE = "Overall_Standings!A2:C"; 
+
+// ADD THIS: Create serviceAccount object from ENV variables
+const serviceAccount = {
+  client_email: process.env.GOOGLE_CLIENT_EMAIL!,
+  private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+};
 
 // We accept a dummy '_t' timestamp to force unique requests
 export async function getSheetData(_t?: number) {
