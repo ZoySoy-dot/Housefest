@@ -108,7 +108,7 @@ main {
    SCORE SECTION (FIXED FOR MOBILE)
    ========================================= */
 .score-section {
-  background: url('/assests/DLSUBackground.jpg') no-repeat center center/cover;
+  background: url('/assets/DLSUBackground.jpg') no-repeat center center/cover;
   min-height: 85vh;
   
   /* Flex Layout */
