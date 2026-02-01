@@ -5,7 +5,7 @@ const SPREADSHEET_ID = "11AtJle3iUOc1tD0Pcpf2UvSY9dtf4VqNEp0ZIdRNbCo";
 // 🔴 REPLACE THIS WITH YOUR ACTUAL GALLERY FOLDER ID
 const GALLERY_FOLDER_ID = "1aBiJh1VX5Jxwi4VXlSTDvhfSsi44FbAN"; 
 
-const MATCH_RESULTS_RANGE = "Match_Results!A2:E"; 
+const MATCH_RESULTS_RANGE = "Match_Results!A2:F"; 
 const OVERALL_RANGE = "Overall_Standings!A2:C"; 
 const ANNOUNCEMENTS_RANGE = "Announcements!A2:D"; 
 

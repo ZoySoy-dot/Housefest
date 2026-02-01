@@ -43,6 +43,13 @@ const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?:
     "MIGUEL": { color: "#1f800e", gradient: "linear-gradient(90deg, #1f800e 0%, #27ae60 100%)", textColor: "white" }
 };
 
+const BANNER_PATHS: Record<string, string> = {
+    "MUTIEN": "/assets/Houses/Banners/Mutien.jpeg",
+    "BENILDE": "/assets/Houses/Banners/Benilde.jpeg",
+    "JAIME": "/assets/Houses/Banners/Jaime.png", 
+    "MIGUEL": "/assets/Houses/Banners/Miguel.jpeg"
+};
+
 type GalleryImage = {
   id: string;
   url: string;
@@ -67,16 +74,35 @@ const fetchSheetData = async (): Promise<SheetData> => {
   return await getSheetData(Date.now());
 };
 
+// --- FIX: Safely handle empty/undefined rank ---
+const formatRank = (rank: string | number | undefined | null) => {
+  if (rank === undefined || rank === null || rank === "") return "-"; // Return placeholder if empty
+  
+  const r = rank.toString().trim();
+  if (r === "1" || r === "1st") return "1st";
+  if (r === "2" || r === "2nd") return "2nd";
+  if (r === "3" || r === "3rd") return "3rd";
+  if (r === "4" || r === "4th") return "4th";
+  return r; 
+};
+
+const getWinnerName = (matchRows: string[][] | undefined, eventId: string) => {
+    if (!matchRows) return null;
+    const cleanId = eventId.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const row = matchRows.find(r => {
+      const sheetId = (r[0] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const rank = (r[4] || "").toString().trim().toLowerCase();
+      return sheetId === cleanId && (rank === "1" || rank === "1st");
+    });
+    return row ? row[1].toUpperCase() : null; 
+};
+
 export default function Home() {
   const [resource, { refetch }] = createResource(fetchSheetData);
   const [viewData, setViewData] = createSignal<SheetData | null>(null);
   const [lastUpdated, setLastUpdated] = createSignal("...");
   const [currentDayIndex, setCurrentDayIndex] = createSignal(0);
-  
-  // Controls Gallery "Load More"
   const [isGalleryExpanded, setIsGalleryExpanded] = createSignal(false);
-  
-  // --- NEW: Controls which image is open in the modal ---
   const [selectedImage, setSelectedImage] = createSignal<GalleryImage | null>(null);
 
   createEffect(() => {
@@ -94,7 +120,7 @@ export default function Home() {
   createEffect(() => {
     const timer = setInterval(() => {
         refetch();
-    }, 30000);
+    }, 30000); // 30 second refresh
     onCleanup(() => clearInterval(timer));
   });
 
@@ -155,7 +181,7 @@ export default function Home() {
   };
   
   const getEventStats = (matchRows: string[][] | undefined, eventId: string, teamName: string) => {
-    if (!matchRows) return { wins: "-", losses: "-", rank: "-" }; 
+    if (!matchRows) return { wins: "-", losses: "-", rank: "-", status: "Not started" }; 
     const cleanId = eventId.toLowerCase().replace(/[^a-z0-9]/g, ""); 
     const cleanTeam = teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
     const row = matchRows.find(r => {
@@ -163,7 +189,12 @@ export default function Home() {
       const sheetTeam = (r[1] || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
       return sheetId === cleanId && sheetTeam === cleanTeam;
     });
-    return { wins: row ? row[2] : "-", losses: row ? row[3] : "-", rank: row ? row[4] : "Nth" };
+    return { 
+        wins: row ? row[2] : "-", 
+        losses: row ? row[3] : "-", 
+        rank: row ? row[4] : "Nth",
+        status: row ? row[5] || "Not started" : "Not started" 
+    };
   };
 
   const getSortedEventTeams = (matchRows: string[][] | undefined, eventId: string) => {
@@ -187,10 +218,7 @@ export default function Home() {
 
   const displayedImages = createMemo(() => {
     const images = viewData()?.galleryImages || [];
-    if (isGalleryExpanded()) {
-        return images;
-    }
-    return images.slice(0, 5);
+    return isGalleryExpanded() ? images : images.slice(0, 5);
   });
 
   return (
@@ -256,49 +284,93 @@ export default function Home() {
           </div>
           <div id="Bulletin-Board">
             <For each={SCHEDULE_DATA[currentDayIndex()].events}>
-              {(event) => (
-                <div class="bulletin-entry" id={event.id}>
-                  <div class="entry-header">
-                    <h1 class="entry-title">{event.title}</h1>
-                    <span class="entry-content">
-                      <p class="entry-content-time">{event.time}</p>
-                      <p class="entry-content-location">{event.loc}</p>
-                    </span>
-                  </div>
-                  {event.hasScores && (
-                    <div class="bulletin-body">
-                      <For each={getSortedEventTeams(viewData()?.matchRows, event.id)}>
-                        {(teamData) => {
-                            const config = TEAM_CONFIG[teamData.name];
-                            return (
-                                <div class="bulletin-body-team-entry">
-                                  <p class="bulletin-body-team-entry-team-name"
-                                    style={{ 
-                                        "background": config ? config.gradient : "#333",
-                                        "color": config?.textColor || "white",
-                                        "padding": "2px 8px", 
-                                        "border-radius": "4px",
-                                        "font-weight": "bold",
-                                        "width": "auto", 
-                                        "min-width": "40%", 
-                                        "text-align": "center",
-                                        "border-right": "none",
-                                        "border": teamData.name === "MUTIEN" ? "1px solid #ccc" : "none"
-                                    }}
-                                  >
-                                    {teamData.name}
-                                  </p>
-                                  <p class="team-score-w">W: {teamData.wins}</p>
-                                  <p class="team-score-l">L: {teamData.losses}</p>
-                                  <p class="team-score-rank">{teamData.rank}</p>
-                                </div>
-                            );
-                        }}
-                      </For>
+              {(event) => {
+                const headerStyle = createMemo(() => {
+                    const winnerName = getWinnerName(viewData()?.matchRows, event.id);
+                    const bannerUrl = winnerName ? BANNER_PATHS[winnerName] : null;
+
+                    if (bannerUrl) {
+                        return {
+                            "background-image": `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${bannerUrl}')`,
+                            "background-size": "cover",
+                            "background-position": "center",
+                            "color": "white",
+                            "text-shadow": "0 2px 4px rgba(0,0,0,0.8)"
+                        };
+                    }
+                    return {}; 
+                });
+
+                return (
+                    <div class="bulletin-entry" id={event.id}>
+                      <div class="entry-header" style={headerStyle()}>
+                        <h1 class="entry-title">{event.title}</h1>
+                        <span class="entry-content">
+                          <p class="entry-content-time">{event.time}</p>
+                          <p class="entry-content-location">{event.loc}</p>
+                        </span>
+                      </div>
+                      
+                      {event.hasScores && (
+                        <div class="bulletin-body">
+                          <For each={getSortedEventTeams(viewData()?.matchRows, event.id)}>
+                            {(teamData) => {
+                                const config = TEAM_CONFIG[teamData.name];
+                                const status = (teamData.status || "").toLowerCase().trim();
+                                const isStarted = status === "started";
+                                const isNotStarted = status === "not started" || status === "";
+                                
+                                const formattedRank = formatRank(teamData.rank);
+                                const isWinner = formattedRank === "1st";
+
+                                return (
+                                    <div class="bulletin-body-team-entry">
+                                      <div style="display: flex; align-items: center; gap: 8px; min-width: 40%;">
+                                          <p class="bulletin-body-team-entry-team-name"
+                                            style={{ 
+                                                "background": config ? config.gradient : "#333",
+                                                "color": config?.textColor || "white",
+                                                "padding": "2px 8px", 
+                                                "border-radius": "4px",
+                                                "font-weight": "bold",
+                                                "width": "100%", 
+                                                "text-align": "center",
+                                                "border": isWinner ? "2px solid #FFD700" : (teamData.name === "MUTIEN" ? "1px solid #ccc" : "none"),
+                                                "box-shadow": isWinner ? "0 0 10px #FFD700" : "none",
+                                                "transform": isWinner ? "scale(1.02)" : "scale(1)",
+                                                "transition": "all 0.3s ease"
+                                            }}
+                                          >
+                                            {teamData.name}
+                                          </p>
+                                      </div>
+
+                                      <Show when={!isNotStarted} fallback={
+                                        <span style="color: #666; font-size: 0.9em; font-style: italic; margin-left: auto; padding-right: 10px;">
+                                          UPCOMING
+                                        </span>
+                                      }>
+                                         <Show when={isStarted}>
+                                            <span style="background-color: #ff3b30; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; font-weight: bold; animation: pulse 1.5s infinite;">
+                                              LIVE
+                                            </span>
+                                         </Show>
+
+                                         <p class="team-score-w">W: {teamData.wins}</p>
+                                         <p class="team-score-l">L: {teamData.losses}</p>
+                                         <p class="team-score-rank" style={{ "color": isWinner ? "#DAA520" : "inherit", "font-weight": isWinner ? "bold" : "normal" }}>
+                                            {formattedRank} {isWinner && "👑"}
+                                         </p>
+                                      </Show>
+                                    </div>
+                                );
+                            }}
+                          </For>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                );
+              }}
             </For>
           </div>
         </section>
@@ -307,54 +379,24 @@ export default function Home() {
           <h2 style="text-align: center; margin-bottom: 2rem; font-family: 'Arial Black'; font-size: 2.5rem;">
             GALLERY
           </h2>
-          
           <div class="gallery-grid">
-            <Show 
-              when={displayedImages().length > 0} 
-              fallback={<div style="text-align:center; width: 100%; grid-column: 1/-1;">No photos yet.</div>}
-            >
+            <Show when={displayedImages().length > 0} fallback={<div style="text-align:center; width: 100%; grid-column: 1/-1;">No photos yet.</div>}>
               <For each={displayedImages()}>
                 {(img) => (
-                  <div 
-                    class="gallery-item" 
-                    onClick={() => setSelectedImage(img)} // --- CLICK TO OPEN MODAL ---
-                  >
-                    <img 
-                      src={img.url} 
-                      alt={img.name} 
-                      class="gallery-img" 
-                      loading="lazy" 
-                    />
+                  <div class="gallery-item" onClick={() => setSelectedImage(img)}>
+                    <img src={img.url} alt={img.name} class="gallery-img" loading="lazy" />
                   </div>
                 )}
               </For>
             </Show>
           </div>
-
           <Show when={(viewData()?.galleryImages?.length || 0) > 5}>
             <div style="text-align: center; margin-top: 2rem;">
                 <button 
                     onClick={() => setIsGalleryExpanded(!isGalleryExpanded())}
-                    style="
-                        background: transparent;
-                        color: white;
-                        border: 2px solid white;
-                        padding: 10px 20px;
-                        font-family: 'Arial Black', sans-serif;
-                        font-size: 1rem;
-                        cursor: pointer;
-                        text-transform: uppercase;
-                        border-radius: 50px;
-                        transition: all 0.3s ease;
-                    "
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "white";
-                        e.currentTarget.style.color = "black";
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "white";
-                    }}
+                    style="background: transparent; color: white; border: 2px solid white; padding: 10px 20px; font-family: 'Arial Black', sans-serif; font-size: 1rem; cursor: pointer; text-transform: uppercase; border-radius: 50px; transition: all 0.3s ease;"
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.color = "black"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "white"; }}
                 >
                     {isGalleryExpanded() ? "Show Less" : "View All Photos"}
                 </button>
@@ -363,17 +405,13 @@ export default function Home() {
         </section>
 
         <section id="Announcements" class="announcement-section" style="background: rgba(255, 255, 255, 0.9); padding: 4rem 2rem; min-height: 50vh;">
-          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2.5rem; text-transform: uppercase;">
-            Announcements
-          </h2>
+          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2.5rem; text-transform: uppercase;">Announcements</h2>
           <div class="announcements-list" style="display: flex; flex-direction: column; gap: 2rem; max-width: 900px; margin: 0 auto;">
             <Show when={Object.keys(groupedAnnouncements()).length > 0} fallback={<div style="text-align: center; color: black;">No announcements yet.</div>}>
                 <For each={Object.keys(groupedAnnouncements())}>
                 {(category) => (
                     <div class="announcement-category">
-                    <h3 style="color: black; border-bottom: 3px solid black; padding-bottom: 0.5rem; margin-bottom: 1.5rem; font-family: 'Arial Black', sans-serif; font-size: 1.5rem; text-transform: uppercase;">
-                        {category}
-                    </h3>
+                    <h3 style="color: black; border-bottom: 3px solid black; padding-bottom: 0.5rem; margin-bottom: 1.5rem; font-family: 'Arial Black', sans-serif; font-size: 1.5rem; text-transform: uppercase;">{category}</h3>
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                         <For each={groupedAnnouncements()[category]}>
                         {(post) => (
@@ -381,9 +419,7 @@ export default function Home() {
                                 <div class="entry-header">
                                     <h1 class="entry-title" style="color: black; font-size: 1.2rem;">{post.title}</h1>
                                     <span class="entry-content">
-                                    <p class="entry-content-time" style="font-size: 0.8rem; font-weight: bold; margin: 0; color: #555;">
-                                        {post.date || "Update"}
-                                    </p>
+                                    <p class="entry-content-time" style="font-size: 0.8rem; font-weight: bold; margin: 0; color: #555;">{post.date || "Update"}</p>
                                     </span>
                                 </div>
                                 <div class="bulletin-body" style="padding: 15px; color: black; font-family: Arial, sans-serif;">
@@ -402,41 +438,23 @@ export default function Home() {
 
       </Show>
 
-      {/* --- NEW: LIGHTBOX MODAL --- */}
       <Show when={selectedImage()}>
-        <div 
-            class="image-modal-overlay" 
-            onClick={() => setSelectedImage(null)} // Click outside to close
-        >
-            <div 
-                class="image-modal-content" 
-                onClick={(e) => e.stopPropagation()} // Prevent click from closing when clicking image
-            >
-                <button 
-                    class="modal-close-btn" 
-                    onClick={() => setSelectedImage(null)}
-                >
-                    &times;
-                </button>
-                
-                <img 
-                    src={selectedImage()?.url} 
-                    alt="Full view" 
-                    class="image-modal-img"
-                />
-                
-                {/* DOWNLOAD BUTTON: Force download param '=d' */}
-                <a 
-                    href={selectedImage()?.url.replace('=s1000', '=d')} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="modal-download-btn"
-                >
-                    <span style="font-size: 1.2em;">⬇</span> Download
-                </a>
+        <div class="image-modal-overlay" onClick={() => setSelectedImage(null)}>
+            <div class="image-modal-content" onClick={(e) => e.stopPropagation()}>
+                <button class="modal-close-btn" onClick={() => setSelectedImage(null)}>&times;</button>
+                <img src={selectedImage()?.url} alt="Full view" class="image-modal-img"/>
+                <a href={selectedImage()?.url.replace('=s1000', '=d')} target="_blank" rel="noopener noreferrer" class="modal-download-btn"><span style="font-size: 1.2em;">⬇</span> Download</a>
             </div>
         </div>
       </Show>
+      
+      <style>{`
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.5; }
+          100% { opacity: 1; }
+        }
+      `}</style>
 
     </main>
   );
