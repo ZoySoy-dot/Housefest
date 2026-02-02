@@ -467,7 +467,7 @@ export default function Home() {
             <button class="merch-nav-btn next" onClick={nextMerch}>❯</button>
 
             <div class="merch-cta-container">
-                <p class="merch-deadline">⚠️ AVAILABLE ONLY UNTIL FEB 4, 6:00 PM</p>
+                <p class="merch-deadline">AVAILABLE ONLY UNTIL FEB 4, 6:00 PM</p>
                 <a href="https://bit.ly/HouseCup-Merch" target="_blank" rel="noopener noreferrer" class="merch-buy-btn">
                     BUY NOW
                 </a>
