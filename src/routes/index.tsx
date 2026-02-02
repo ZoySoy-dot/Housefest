@@ -50,6 +50,9 @@ const BANNER_PATHS: Record<string, string> = {
     "MIGUEL": "/assets/Houses/Banners/Miguel.jpeg"
 };
 
+// --- MERCH CONFIGURATION ---
+const MERCH_IMAGES = Array.from({ length: 20 }, (_, i) => `/assets/Merch/${i + 2}.jpg`);
+
 type GalleryImage = {
   id: string;
   url: string;
@@ -74,9 +77,8 @@ const fetchSheetData = async (): Promise<SheetData> => {
   return await getSheetData(Date.now());
 };
 
-// --- FIX: Safely handle empty/undefined rank ---
 const formatRank = (rank: string | number | undefined | null) => {
-  if (rank === undefined || rank === null || rank === "") return "-"; // Return placeholder if empty
+  if (rank === undefined || rank === null || rank === "") return "-";
   
   const r = rank.toString().trim();
   if (r === "1" || r === "1st") return "1st";
@@ -104,6 +106,9 @@ export default function Home() {
   const [currentDayIndex, setCurrentDayIndex] = createSignal(0);
   const [isGalleryExpanded, setIsGalleryExpanded] = createSignal(false);
   const [selectedImage, setSelectedImage] = createSignal<GalleryImage | null>(null);
+  
+  // Merch Carousel State
+  const [currentMerchIndex, setCurrentMerchIndex] = createSignal(0);
 
   createEffect(() => {
     if (!resource.error && resource()) {
@@ -123,6 +128,17 @@ export default function Home() {
     }, 30000); // 30 second refresh
     onCleanup(() => clearInterval(timer));
   });
+
+  // Auto-rotate merch carousel
+  createEffect(() => {
+    const timer = setInterval(() => {
+        setCurrentMerchIndex((prev) => (prev + 1) % MERCH_IMAGES.length);
+    }, 5000);
+    onCleanup(() => clearInterval(timer));
+  });
+
+  const nextMerch = () => setCurrentMerchIndex((prev) => (prev + 1) % MERCH_IMAGES.length);
+  const prevMerch = () => setCurrentMerchIndex((prev) => (prev - 1 + MERCH_IMAGES.length) % MERCH_IMAGES.length);
 
   const groupedAnnouncements = createMemo(() => {
     const rawData = viewData()?.announcements || [];
@@ -223,26 +239,27 @@ export default function Home() {
 
   return (
     <main>
-      <Title>Housefest</Title>
+      <Title>House Cup</Title>
       
       <header id="main-header">
         <div id="left"><img src="/assets/SC_Logo.svg" alt="" class="Header-Logo" /></div>
         <div id="center">
-          <h1>HOUSEFEST</h1>
+          <h1>HOUSE CUP</h1>
           <h6>2025-2026</h6>
           <nav class="pill-nav">
             <a href="#Score">SCORE</a>
             <a href="#Live-section">LIVE <span class="live-dot" title={resource.loading ? "Refreshing..." : "Live"}></span></a>
             <a href="#Gallery">GALLERY</a>
             <a href="#Announcements">INFO</a>
+            <a href="#Merch" style="color: black;">MERCH</a>
           </nav>
         </div>
         <div id="right"><img src="/assets/DLSU_Logo.svg" alt="" class="Header-Logo" /></div>
       </header>
 
-      <Show when={viewData()} fallback={<div class="loading-screen">Loading Scores...</div>}>
+      <Show when={viewData()} fallback={<div class="loading-screen" style="text-align:center; padding: 50px;">Loading Scores...</div>}>
         
-        <section id="Score" class="score-section" style="align-items: flex-end;">
+        <section id="Score" class="score-section">
           <For each={TEAMS}>
             {(team) => {
               const stats = () => getCalculatedTeamStats(viewData()?.overallRows, team);
@@ -269,7 +286,7 @@ export default function Home() {
           </For>
         </section>
 
-        <section id="Live-section" class="live-section" style="position: relative;">
+        <section id="Live-section">
           <div class="last-updated-indicator">
             Last updated: {lastUpdated()}
           </div>
@@ -336,10 +353,10 @@ export default function Home() {
                                                 "width": "100%", 
                                                 "text-align": "center",
                                                 "border": isWinner ? "2px solid #FFD700" : (teamData.name === "MUTIEN" ? "1px solid #ccc" : "none"),
-                                                "box-shadow": isWinner ? "0 0 10px #FFD700" : "none",
+                                                "box-shadow": "none",
                                                 "transform": isWinner ? "scale(1.02)" : "scale(1)",
                                                 "transition": "all 0.3s ease"
-                                            }}
+                                           }}
                                           >
                                             {teamData.name}
                                           </p>
@@ -376,8 +393,8 @@ export default function Home() {
         </section>
 
         <section id="Gallery" class="gallery-section">
-          <h2 style="text-align: center; margin-bottom: 2rem; font-family: 'Arial Black'; font-size: 2.5rem;">
-            GALLERY
+          <h2 style="text-align: center; margin-bottom: 2rem; font-family: 'Arial Black'; font-size: 2.5rem; text-transform: uppercase;">
+            Gallery
           </h2>
           <div class="gallery-grid">
             <Show when={displayedImages().length > 0} fallback={<div style="text-align:center; width: 100%; grid-column: 1/-1;">No photos yet.</div>}>
@@ -405,7 +422,7 @@ export default function Home() {
         </section>
 
         <section id="Announcements" class="announcement-section" style="background: rgba(255, 255, 255, 0.9); padding: 4rem 2rem; min-height: 50vh;">
-          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2.5rem; text-transform: uppercase;">Announcements</h2>
+          <h2 style="text-align: center; color: black; margin-bottom: 2rem; font-family: 'Arial Black', sans-serif; font-size: 2rem; text-transform: uppercase;">Announcements</h2>
           <div class="announcements-list" style="display: flex; flex-direction: column; gap: 2rem; max-width: 900px; margin: 0 auto;">
             <Show when={Object.keys(groupedAnnouncements()).length > 0} fallback={<div style="text-align: center; color: black;">No announcements yet.</div>}>
                 <For each={Object.keys(groupedAnnouncements())}>
@@ -436,6 +453,27 @@ export default function Home() {
           </div>
         </section>
 
+        {/* --- MERCH SECTION (HERO BANNER STYLE) --- */}
+        <section 
+            id="Merch" 
+            class="merch-section"
+            style={{ 
+                "background-image": `url('${MERCH_IMAGES[currentMerchIndex()]}')`
+            }}
+        >
+            <h2 class="merch-title">MERCH</h2>
+            
+            <button class="merch-nav-btn prev" onClick={prevMerch}>❮</button>
+            <button class="merch-nav-btn next" onClick={nextMerch}>❯</button>
+
+            <div class="merch-cta-container">
+                <p class="merch-deadline">⚠️ AVAILABLE ONLY UNTIL FEB 4, 6:00 PM</p>
+                <a href="https://bit.ly/HouseCup-Merch" target="_blank" rel="noopener noreferrer" class="merch-buy-btn">
+                    BUY NOW
+                </a>
+            </div>
+        </section>
+
       </Show>
 
       <Show when={selectedImage()}>
@@ -455,7 +493,6 @@ export default function Home() {
           100% { opacity: 1; }
         }
       `}</style>
-
     </main>
   );
 }
