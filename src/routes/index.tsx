@@ -4,7 +4,8 @@ import { getSheetData } from "../server/score";
 import { marked } from "marked"; 
 import "./index.css";
 
-const SCHEDULE_DATA = [
+// --- 1. BASE SCHEDULE (Skeleton Only - Data comes from Google Sheets) ---
+const BASE_SCHEDULE = [
   {
     date: "February 4 (Day 1)",
     events: [
@@ -38,7 +39,7 @@ const TEAMS = ["MUTIEN", "BENILDE", "JAIME", "MIGUEL"];
 const TEAM_CONFIG: Record<string, { color: string, gradient: string, textColor?: string }> = {
     "MUTIEN": { color: "#ffffff", gradient: "linear-gradient(90deg, #ffffff 0%, #e0e0e0 100%)", textColor: "black" },
     "BENILDE": { color: "#000000", gradient: "linear-gradient(90deg, #000000 0%, #434343 100%)", textColor: "white" },
-    "JAIME": { color: "#17d430", gradient: "linear-gradient(90deg, #17d430 0%, #2ecc71 100%)", textColor: "white" },
+    "JAIME": { color: "#78be21", gradient: "linear-gradient(90deg, #78be21 0%, #78be21 100%)", textColor: "white" },
     "MIGUEL": { color: "#1f800e", gradient: "linear-gradient(90deg, #1f800e 0%, #27ae60 100%)", textColor: "white" }
 };
 
@@ -49,7 +50,6 @@ const BANNER_PATHS: Record<string, string> = {
     "MIGUEL": "/assets/Houses/Banners/Miguel.jpeg"
 };
 
-// --- MERCH CONFIGURATION ---
 const MERCH_IMAGES = Array.from({ length: 20 }, (_, i) => `/assets/Merch/${i + 2}.jpg`);
 
 type GalleryImage = {
@@ -58,11 +58,20 @@ type GalleryImage = {
   name?: string;
 }
 
+type SubEvent = {
+  round: string;
+  division: string;
+  match: string;
+  time: string;
+  loc: string;
+};
+
 type SheetData = {
   matchRows: string[][];
   overallRows: string[][];
   announcements: string[][];
   galleryImages: GalleryImage[];
+  scheduleData?: Record<string, SubEvent[]>; // Added this from server response
 };
 
 type Announcement = {
@@ -105,8 +114,8 @@ export default function Home() {
   const [currentDayIndex, setCurrentDayIndex] = createSignal(0);
   const [isGalleryExpanded, setIsGalleryExpanded] = createSignal(false);
   const [selectedImage, setSelectedImage] = createSignal<GalleryImage | null>(null);
-  
-  // Merch Carousel State
+  const [activeEvent, setActiveEvent] = createSignal<any>(null);
+
   const [currentMerchIndex, setCurrentMerchIndex] = createSignal(0);
 
   createEffect(() => {
@@ -121,14 +130,27 @@ export default function Home() {
     }
   });
 
+  // --- MERGE BASE SCHEDULE WITH DYNAMIC GOOGLE SHEET DATA ---
+  const scheduleWithData = createMemo(() => {
+    const dynamicSchedule = viewData()?.scheduleData || {};
+
+    return BASE_SCHEDULE.map(day => ({
+        ...day,
+        events: day.events.map(event => ({
+            ...event,
+            // Automatically inject subEvents if the ID matches a key from the server
+            subEvents: dynamicSchedule[event.id] || undefined
+        }))
+    }));
+  });
+
   createEffect(() => {
     const timer = setInterval(() => {
         refetch();
-    }, 30000); // 30 second refresh
+    }, 30000); 
     onCleanup(() => clearInterval(timer));
   });
 
-  // Auto-rotate merch carousel
   createEffect(() => {
     const timer = setInterval(() => {
         setCurrentMerchIndex((prev) => (prev + 1) % MERCH_IMAGES.length);
@@ -228,8 +250,8 @@ export default function Home() {
     });
   };
 
-  const nextDay = () => setCurrentDayIndex((prev) => (prev + 1) % SCHEDULE_DATA.length);
-  const prevDay = () => setCurrentDayIndex((prev) => (prev - 1 + SCHEDULE_DATA.length) % SCHEDULE_DATA.length);
+  const nextDay = () => setCurrentDayIndex((prev) => (prev + 1) % BASE_SCHEDULE.length);
+  const prevDay = () => setCurrentDayIndex((prev) => (prev - 1 + BASE_SCHEDULE.length) % BASE_SCHEDULE.length);
 
   const displayedImages = createMemo(() => {
     const images = viewData()?.galleryImages || [];
@@ -292,13 +314,14 @@ export default function Home() {
             <button class="Live-Nav-Button" onClick={prevDay}>
               <img src="/assets/Icons/Arrow_Back.svg" class="back-arrow" />
             </button>
-            <h3>{SCHEDULE_DATA[currentDayIndex()].date}</h3>
+            <h3>{BASE_SCHEDULE[currentDayIndex()].date}</h3>
             <button class="Live-Nav-Button" onClick={nextDay}>
               <img src="/assets/Icons/Arrow_Forward.svg" class="forward-arrow" />
             </button>
           </div>
           <div id="Bulletin-Board">
-            <For each={SCHEDULE_DATA[currentDayIndex()].events}>
+            {/* USE THE MERGED SCHEDULE HERE */}
+            <For each={scheduleWithData()[currentDayIndex()].events}>
               {(event) => {
                 const headerStyle = createMemo(() => {
                     const winnerName = getWinnerName(viewData()?.matchRows, event.id);
@@ -316,14 +339,33 @@ export default function Home() {
                     return {}; 
                 });
 
+                const isEventLive = () => {
+                    const teams = getSortedEventTeams(viewData()?.matchRows, event.id);
+                    return teams.some(t => (t.status || "").toLowerCase() === "started");
+                };
+
                 return (
-                    <div class="bulletin-entry" id={event.id}>
+                    <div 
+                        class={`bulletin-entry ${isEventLive() ? 'live-glow' : ''}`} 
+                        id={event.id}
+                        onClick={() => setActiveEvent(event)}
+                        style={{ "cursor": "pointer", "transition": "transform 0.2s" }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.01)"}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                    >
                       <div class="entry-header" style={headerStyle()}>
                         <h1 class="entry-title">{event.title}</h1>
                         <span class="entry-content">
                           <p class="entry-content-time">{event.time}</p>
                           <p class="entry-content-location">{event.loc}</p>
+                          <span style="font-size: 0.8rem; text-decoration: underline; margin-top: 5px; opacity: 0.8;">
+                            Tap for details ➜
+                          </span>
                         </span>
+                        
+                        <Show when={isEventLive()}>
+                            <div class="live-badge-corner">LIVE</div>
+                        </Show>
                       </div>
                       
                       {event.hasScores && (
@@ -334,7 +376,6 @@ export default function Home() {
                                 const status = (teamData.status || "").toLowerCase().trim();
                                 const isStarted = status === "started";
                                 const isNotStarted = status === "not started" || status === "";
-                                
                                 const formattedRank = formatRank(teamData.rank);
                                 const isWinner = formattedRank === "1st";
 
@@ -451,7 +492,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- MERCH SECTION (HERO BANNER STYLE) --- */}
         <section 
             id="Merch" 
             class="merch-section"
@@ -474,6 +514,73 @@ export default function Home() {
 
       </Show>
 
+      {/* --- EVENT DETAILS MODAL --- */}
+      <Show when={activeEvent()}>
+        <div class="modal-overlay" onClick={() => setActiveEvent(null)}>
+            <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+                <button class="modal-close" onClick={() => setActiveEvent(null)}>&times;</button>
+                
+                <h2 style="font-family: 'Arial Black'; margin-bottom: 0;">{activeEvent().title}</h2>
+                <p style="color: #666; margin-bottom: 20px;">{activeEvent().time} | {activeEvent().loc}</p>
+                
+                <div class="modal-scroll-area">
+                    <Show when={activeEvent().hasScores}>
+                        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Current Standings</h3>
+                        <div style="margin-bottom: 20px;">
+                            <For each={getSortedEventTeams(viewData()?.matchRows, activeEvent().id)}>
+                                {(team) => (
+                                    <div class="modal-standing-row">
+                                        <span class={`team-dot ${team.name}`}></span>
+                                        <span class="t-name">{team.name}</span>
+                                        <span class="t-stat">W: {team.wins} | L: {team.losses}</span>
+                                        <Show when={(team.status||"").toLowerCase() === "started"}>
+                                            <span class="status-live">PLAYING NOW</span>
+                                        </Show>
+                                    </div>
+                                )}
+                            </For>
+                        </div>
+                    </Show>
+
+                    <Show when={activeEvent().subEvents}>
+                        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Match Schedule</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="schedule-table">
+                                <thead>
+                                    <tr>
+                                        <th>Round</th>
+                                        <th>Div</th>
+                                        <th>Matchup</th>
+                                        <th>Time</th>
+                                        <th>Court</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={activeEvent().subEvents}>
+                                        {(sub: any) => (
+                                            <tr>
+                                                <td>{sub.round}</td>
+                                                <td><span class="division-badge">{sub.division}</span></td>
+                                                <td style="font-weight: bold">{sub.match}</td>
+                                                <td style="white-space: nowrap">{sub.time || "-"}</td>
+                                                <td>{sub.loc}</td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Show>
+                    
+                    <Show when={!activeEvent().subEvents && !activeEvent().hasScores}>
+                        <p style="color: #888; text-align: center; margin-top: 20px;">No specific details available for this event yet.</p>
+                    </Show>
+                </div>
+            </div>
+        </div>
+      </Show>
+
+      {/* Gallery Modal */}
       <Show when={selectedImage()}>
         <div class="image-modal-overlay" onClick={() => setSelectedImage(null)}>
             <div class="image-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -489,6 +596,127 @@ export default function Home() {
           0% { opacity: 1; }
           50% { opacity: 0.5; }
           100% { opacity: 1; }
+        }
+
+        .live-glow {
+            border: 2px solid #ff3b30 !important;
+            box-shadow: 0 0 15px rgba(255, 59, 48, 0.4);
+            position: relative;
+        }
+
+        .live-badge-corner {
+            background-color: #ff3b30;
+            color: white;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            color: black;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .modal-scroll-area {
+            overflow-y: auto;
+            margin-top: 1rem;
+            padding-right: 5px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px; right: 15px;
+            font-size: 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #333;
+            z-index: 2;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            min-width: 500px; 
+        }
+
+        .schedule-table th { 
+            text-align: left; 
+            background: #f4f4f4; 
+            padding: 8px; 
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        
+        .schedule-table td { 
+            border-bottom: 1px solid #eee; 
+            padding: 10px 8px; 
+        }
+
+        .division-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #eee;
+            color: #555;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .modal-standing-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1rem;
+        }
+
+        .t-name { font-weight: bold; flex-grow: 1; }
+        .t-stat { color: #555; font-size: 0.9em; }
+
+        .team-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .team-dot.MUTIEN { background: #ccc; border: 1px solid black; }
+        .team-dot.BENILDE { background: black; }
+        .team-dot.JAIME { background: #78be21; }
+        .team-dot.MIGUEL { background: #1f800e; }
+
+        .status-live {
+            color: #ff3b30;
+            font-weight: bold;
+            font-size: 0.8rem;
+            animation: pulse 1.5s infinite;
         }
       `}</style>
     </main>
