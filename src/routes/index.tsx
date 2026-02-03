@@ -254,7 +254,6 @@ export default function Home() {
             <a href="#Merch" style="color: black;">MERCH</a>
           </nav>
         </div>
-        <div id="right"><img src="/assets/DLSU_Logo.svg" alt="" class="Header-Logo" /></div>
       </header>
 
       <Show when={viewData()} fallback={<div class="loading-screen" style="text-align:center; padding: 50px;">Loading Scores...</div>}>
