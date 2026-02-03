@@ -4,32 +4,31 @@ import { getSheetData } from "../server/score";
 import { marked } from "marked"; 
 import "./index.css";
 
-// --- CONFIGURATION: Schedule Data ---
 const SCHEDULE_DATA = [
   {
     date: "February 4 (Day 1)",
     events: [
-      { id: "opening", title: "Opening Program", time: "8:00 - 9:00 AM", loc: "Covered Courts", hasScores: false },
-      { id: "volleyball", title: "Volleyball", time: "9:00 AM - 3:00 PM", loc: "Pergola", hasScores: true },
-      { id: "bball-boys", title: "Basketball Boys", time: "9:00 AM - 5:00 PM", loc: "Covered Courts", hasScores: true },
-      { id: "bball-girls", title: "Basketball Girls", time: "9:00 AM - 5:00 PM", loc: "SMG", hasScores: true },
+      { id: "opening", title: "Opening Program", time: "7:30 AM", loc: "Covered Courts", hasScores: false },
+      { id: "volleyball", title: "Volleyball", time: "9:00 AM - 4:00 PM", loc: "Pergola", hasScores: true },
+      { id: "bball-boys", title: "Basketball Boys", time: "10:00 AM - 3:00 PM", loc: "Covered Courts", hasScores: true },
+      { id: "bball-girls", title: "Basketball Girls", time: "10:00 AM - 1:00 PM", loc: "SMG", hasScores: true },
       { id: "frisbee", title: "Frisbee", time: "9:00 AM - 3:00 PM", loc: "Quad", hasScores: true },
-      { id: "swimming", title: "Swimming", time: "9:00 - 11:00 AM", loc: "Pool", hasScores: true },
+      { id: "swimming", title: "Swimming", time: "9:30 - 11:30 AM", loc: "Pool", hasScores: true },
       { id: "tekken", title: "Tekken", time: "1:00 - 5:00 PM", loc: "Information Commons", hasScores: true },
       { id: "vr-game", title: "VR Game", time: "3:00 - 5:00 PM", loc: "Information Commons", hasScores: true },
-      { id: "tug-of-war", title: "Tug-of-War", time: "3:30 - 5:00 PM", loc: "SMG", hasScores: true },
+      { id: "tug-of-war", title: "Tug-of-War", time: "2:00 - 5:00 PM", loc: "SMG", hasScores: true },
     ]
   },
   {
     date: "February 11 (Day 2)",
     events: [
-      { id: "table-tennis", title: "Table Tennis", time: "8:00 AM - 12:00 NN", loc: "SMG", hasScores: true },
-      { id: "badminton", title: "Badminton", time: "8:00 AM - 12:00 NN", loc: "SMG", hasScores: true },
-      { id: "board-games", title: "Board Games", time: "8:00 AM - 12:00 NN", loc: "Information Commons", hasScores: true },
+      { id: "table-tennis", title: "Table Tennis", time: "10:00 - 12:00 NN", loc: "SMG", hasScores: true },
+      { id: "badminton", title: "Badminton", time: "10:00 - 12:00 NN", loc: "SMG", hasScores: true },
       { id: "dodgeball", title: "Dodgeball", time: "1:00 - 3:00 PM", loc: "SMG", hasScores: true },
-      { id: "hiphop", title: "Hiphop Competition", time: "2:00 - 4:00 PM", loc: "Covered Courts", hasScores: true },
-      { id: "battle-bands", title: "Battle of the Bands", time: "2:00 - 4:00 PM", loc: "Covered Courts", hasScores: true },
-      { id: "closing", title: "Closing Program", time: "2:00 - 4:00 PM", loc: "Covered Courts", hasScores: false },
+      { id: "board-games", title: "Board Games", time: "10:30 AM - 2:00 PM", loc: "Information Commons", hasScores: true },
+      { id: "hiphop", title: "Hiphop Competition", time: "3:00 - 5:00 PM", loc: "Covered Courts", hasScores: true },
+      { id: "battle-bands", title: "Battle of the Bands", time: "3:00 - 5:00 PM", loc: "Covered Courts", hasScores: true },
+      { id: "closing", title: "Closing Program", time: "3:00 - 5:00 PM", loc: "Covered Courts", hasScores: false },
     ]
   }
 ];
