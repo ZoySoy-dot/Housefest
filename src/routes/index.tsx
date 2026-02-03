@@ -1,5 +1,15 @@
 import { Title } from "@solidjs/meta";
-import { createSignal, onCleanup, For, createEffect, createResource, Show, createMemo } from "solid-js";
+import { 
+  createSignal, 
+  onCleanup, 
+  For, 
+  createEffect, 
+  createResource, 
+  Show, 
+  createMemo, 
+  onMount 
+} from "solid-js";
+import { inject } from "@vercel/analytics"; // Import Vercel Analytics
 import { getSheetData } from "../server/score"; 
 import { marked } from "marked"; 
 import "./index.css";
@@ -71,7 +81,7 @@ type SheetData = {
   overallRows: string[][];
   announcements: string[][];
   galleryImages: GalleryImage[];
-  scheduleData?: Record<string, SubEvent[]>; // Added this from server response
+  scheduleData?: Record<string, SubEvent[]>; 
 };
 
 type Announcement = {
@@ -108,6 +118,12 @@ const getWinnerName = (matchRows: string[][] | undefined, eventId: string) => {
 };
 
 export default function Home() {
+  // --- Vercel Analytics Injection ---
+  // Calling inject() automatically distinguishes "Visitors" (Unique) from "Views" (Total)
+  onMount(() => {
+    inject();
+  });
+
   const [resource, { refetch }] = createResource(fetchSheetData);
   const [viewData, setViewData] = createSignal<SheetData | null>(null);
   const [lastUpdated, setLastUpdated] = createSignal("...");
@@ -138,7 +154,6 @@ export default function Home() {
         ...day,
         events: day.events.map(event => ({
             ...event,
-            // Automatically inject subEvents if the ID matches a key from the server
             subEvents: dynamicSchedule[event.id] || undefined
         }))
     }));
@@ -320,7 +335,6 @@ export default function Home() {
             </button>
           </div>
           <div id="Bulletin-Board">
-            {/* USE THE MERGED SCHEDULE HERE */}
             <For each={scheduleWithData()[currentDayIndex()].events}>
               {(event) => {
                 const headerStyle = createMemo(() => {
