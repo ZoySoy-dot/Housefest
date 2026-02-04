@@ -156,7 +156,7 @@ main {
 .mutien { background-color: white; color: black; border: 2px solid white; background-image: url("/assets/Houses/Logos/Marie.PNG"); }
 .benilde { background-color: black; color: white; border: 2px solid #00ffaa; background-image: url("/assets/Houses/Logos/Benilde.PNG");}
 .jaime { background-color: #78be21; color: black; border: 2px solid #00ff00; background-image: url("/assets/Houses/Logos/Jaime.PNG");}
-.miguel { background-color: #006400; color: white; border: 2px solid #00ff00;background-image: url("/assets/Houses/Logos/Miguel.PNG"); }
+.miguel { background-color: #006400; color: white; border: 2px solid #00ff00;background-image: url("/assets/Houses/Logos/Miguel.PNG"); background-size: 80%;}
 /* Mobile View Adjustments (Screens smaller than 768px) */
 @media (max-width: 768px) {
   .mutien, .benilde, .jaime, .miguel {
