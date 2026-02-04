@@ -29,7 +29,8 @@ const BASE_SCHEDULE = [
       { id: "swimming-girls", title: "Swimming-Girls", time: "9:30 - 11:30 AM", loc: "Pool", hasScores: true },
       { id: "tekken", title: "Tekken", time: "2:00 - 5:00 PM", loc: "Information Commons", hasScores: true },
       { id: "vr-game", title: "VR Game", time: "2:00 - 5:00 PM", loc: "Information Commons", hasScores: true },
-      { id: "tug-of-war", title: "Tug-of-War", time: "2:00 - 5:00 PM", loc: "SMG", hasScores: true },
+      { id: "tug-of-war-boys", title: "Tug-of-War-Boys", time: "2:00 - 5:00 PM", loc: "SMG", hasScores: true },
+      { id: "tug-of-war-girls", title: "Tug-of-War-Girls", time: "2:00 - 5:00 PM", loc: "SMG", hasScores: true }
     ]
   },
   {
