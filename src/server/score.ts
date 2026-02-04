@@ -202,7 +202,9 @@ export async function getSheetData(_t?: number) {
 
     const galleryImages = (driveResponse.data.files || []).map(file => ({
       id: file.id,
-      url: `https://lh3.googleusercontent.com/d/$${file.id}=s1000`, 
+      // FIX 1: Added '$' before {file.id}
+      // FIX 2: Switched to the reliable Drive thumbnail endpoint (&sz=w1000 sets width to 1000px)
+      url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w1000`, 
       name: file.name
     }));
     
