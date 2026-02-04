@@ -119,9 +119,18 @@ const getWinnerName = (matchRows: string[][] | undefined, eventId: string) => {
     return row ? row[1].toUpperCase() : null; 
 };
 
+// --- OPTIMIZATION HELPER ---
+// Checks if the new data is actually different from the current state
+const isDataChanged = (prev: SheetData | null, next: SheetData | undefined) => {
+  if (!prev && !next) return false;
+  if (!prev || !next) return true; // One is null, the other isn't
+  
+  // Fast deep comparison using JSON stringify
+  return JSON.stringify(prev) !== JSON.stringify(next);
+};
+
 export default function Home() {
   // --- Vercel Analytics Injection ---
-  // Calling inject() automatically distinguishes "Visitors" (Unique) from "Views" (Total)
   onMount(() => {
     inject();
   });
@@ -136,15 +145,21 @@ export default function Home() {
 
   const [currentMerchIndex, setCurrentMerchIndex] = createSignal(0);
 
+  // --- UPDATED EFFECT: Only updates signals if data content actually changed ---
   createEffect(() => {
-    if (!resource.error && resource()) {
-      setViewData(resource());
-      const now = new Date();
-      setLastUpdated(now.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-      }));
+    const newData = resource();
+
+    if (!resource.error && newData) {
+      if (isDataChanged(viewData(), newData)) {
+        setViewData(newData);
+        
+        const now = new Date();
+        setLastUpdated(now.toLocaleTimeString([], { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit' 
+        }));
+      }
     }
   });
 
