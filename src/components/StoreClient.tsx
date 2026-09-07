@@ -67,18 +67,6 @@ export default function StoreClient() {
     <div className={styles.wrap}>
       <StoreHeader />
 
-      {/* ═══ HERO ═══ */}
-      <section className={styles.hero}>
-        <div className={styles.heroInner}>
-          <div className={styles.heroKicker}>OFFICIAL MERCH · A.Y. 2025–2026</div>
-          <h1 className={styles.heroTitle}>SC STORE</h1>
-          <p className={styles.heroSub}>
-            Rep your house. Support your council. Limited-run apparel and accessories,
-            available only during Housefest season.
-          </p>
-        </div>
-      </section>
-
       <main className={styles.main}>
         {/* ═══ SEARCH ═══ */}
         <div className={styles.searchRow}>

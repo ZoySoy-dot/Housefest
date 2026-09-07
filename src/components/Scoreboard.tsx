@@ -418,7 +418,6 @@ export default function Scoreboard() {
         @keyframes hfSpin  { to { transform: rotate(360deg) } }
         a[href="/store"]:hover {
           background: #00ffa0 !important;
-          box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4) !important;
           transform: translateY(-1px);
         }
       `}</style>
@@ -555,8 +554,7 @@ const S: Record<string, React.CSSProperties> = {
     border: "2px solid #00ff88",
     borderRadius: 4,
     background: "#00ff88",
-    boxShadow: "0 4px 14px rgba(0, 255, 136, 0.25)",
-    transition: "background 0.15s, box-shadow 0.15s, transform 0.15s",
+    transition: "background 0.15s, transform 0.15s",
     textTransform: "uppercase",
   },
   /* ticker */
