@@ -1,4 +1,21 @@
-dist
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production build
+/build
+/dist
+
+# legacy / other frameworks (kept from prior setup)
 .wrangler
 .output
 .vercel
@@ -6,12 +23,18 @@ dist
 .vinxi
 app.config.timestamp_*.js
 
+# TypeScript
+*.tsbuildinfo
+
+# debug / logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
 # Environment
 .env
 .env*.local
-
-# dependencies
-/node_modules
 
 # IDEs and editors
 /.idea
@@ -19,12 +42,15 @@ app.config.timestamp_*.js
 .classpath
 *.launch
 .settings/
-
-# Temp
-gitignore
+.vscode/
 
 # System Files
 .DS_Store
 Thumbs.db
 
+# Secrets / credentials
 service-account.json
+*.pem
+
+# Machine-specific lockfile backups
+package-lock-DESKTOP-*.json
