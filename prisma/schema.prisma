@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String
+  createdAt DateTime @default(now())
+
+  scores    Score[]
+}
+
+model Game {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  venue       String?
+  startTime   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  scores      Score[]
+}
+
+model Score {
+  id        Int      @id @default(autoincrement())
+  wins      Int      @default(0)
+  losses    Int      @default(0)
+  points    Int      @default(0)
+  teamId    Int
+  gameId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team      Team     @relation(fields: [teamId], references: [id])
+  game      Game     @relation(fields: [gameId], references: [id])
+
+  @@unique([teamId, gameId])
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String?
+  imageUrl    String?
+  category    String?
+  basePrice   Int              @default(0)   // in centavos (PHP smallest unit)
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  variants    ProductVariant[]
+  orderItems  OrderItem[]
+}
+
+model ProductVariant {
+  id         Int         @id @default(autoincrement())
+  productId  Int
+  group      String   // e.g. "Size", "Color"
+  option     String   // e.g. "M", "Red"
+  price      Int         @default(0)  // in centavos; overrides Product.basePrice
+  stock      Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([productId, group, option])
+}
+
+enum OrderStatus {
+  pending
+  paid
+  fulfilled
+  cancelled
+}
+
+enum OrderSource {
+  online
+  manual
+}
+
+enum PaymentMethod {
+  cash
+  gcash
+  maya
+  card
+  bank
+  other
+}
+
+model Order {
+  id            Int            @id @default(autoincrement())
+  customerName  String
+  customerEmail String?
+  customerPhone String?
+  house         String?     // e.g. "Mutien", "Benilde"
+  notes         String?
+  status        OrderStatus    @default(pending)
+  source        OrderSource    @default(manual)
+  paymentMethod PaymentMethod?
+  paidAmount    Int            @default(0)   // centavos actually collected
+  subtotal      Int            @default(0)   // centavos
+  total         Int            @default(0)   // centavos (subtotal + fees; equal to subtotal for now)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  items         OrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id           Int             @id @default(autoincrement())
+  orderId      Int
+  productId    Int?
+  variantId    Int?
+  productName  String       // snapshot at time of sale
+  variantLabel String?      // snapshot e.g. "Size · M"
+  unitPrice    Int             @default(0)  // centavos, snapshot
+  qty          Int             @default(1)
+  lineTotal    Int             @default(0)  // centavos = unitPrice * qty
+
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+}
