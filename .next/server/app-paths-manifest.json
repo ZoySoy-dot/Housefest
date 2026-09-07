@@ -1,5 +1,9 @@
 {
+  "/api/teams/route": "app/api/teams/route.js",
+  "/api/games/route": "app/api/games/route.js",
+  "/api/scores/route": "app/api/scores/route.js",
+  "/api/orders/analytics/route": "app/api/orders/analytics/route.js",
+  "/api/games-standings/route": "app/api/games-standings/route.js",
   "/admin/page": "app/admin/page.js",
-  "/page": "app/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js"
+  "/page": "app/page.js"
 }
