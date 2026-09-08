@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { signIn, useSession } from "next-auth/react";
 import { useCart, formatPHP } from "@/lib/cart";
+import { serviceFeeFor } from "@/lib/fees";
 import StoreHeader from "./StoreHeader";
 import styles from "./Store.module.css";
 
 export default function CartClient() {
   const { items, setQty, remove, subtotal, count, clear } = useCart();
+  const { status } = useSession();
+  const isSignedIn = status === "authenticated";
 
   return (
     <div className={styles.wrap}>
@@ -80,17 +84,30 @@ export default function CartClient() {
                 <span>{formatPHP(subtotal)}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>Shipping</span>
-                <span className={styles.muted}>Calculated at checkout</span>
+                <span>Service fee</span>
+                <span>{formatPHP(serviceFeeFor(subtotal))}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>Pickup</span>
+                <span className={styles.muted}>Free</span>
               </div>
               <div className={styles.summaryDivider} />
               <div className={styles.summaryTotal}>
                 <span>Total</span>
-                <span>{formatPHP(subtotal)}</span>
+                <span>{formatPHP(subtotal + serviceFeeFor(subtotal))}</span>
               </div>
-              <button className={styles.primaryBtn} disabled title="Payments coming soon">
-                Checkout (coming soon)
-              </button>
+              {isSignedIn ? (
+                <Link href="/store/checkout" className={styles.primaryBtn}>
+                  Proceed to checkout
+                </Link>
+              ) : (
+                <button
+                  className={styles.primaryBtn}
+                  onClick={() => signIn("google", { callbackUrl: "/store/checkout" })}
+                >
+                  Sign in to checkout
+                </button>
+              )}
               <button className={styles.linkBtn} onClick={clear}>Clear cart</button>
             </aside>
           </div>

@@ -48,7 +48,9 @@ model Product {
   id          Int              @id @default(autoincrement())
   name        String
   description String?
-  imageUrl    String?
+  imageUrl    String?          // legacy single image; kept as fallback
+  imageUrls   String[]         @default([])
+  sizeChartUrl String?
   category    String?
   basePrice   Int              @default(0)   // in centavos (PHP smallest unit)
   active      Boolean          @default(true)
@@ -93,6 +95,7 @@ enum PaymentMethod {
   maya
   card
   bank
+  paymongo
   other
 }
 
@@ -108,7 +111,11 @@ model Order {
   paymentMethod PaymentMethod?
   paidAmount    Int            @default(0)   // centavos actually collected
   subtotal      Int            @default(0)   // centavos
-  total         Int            @default(0)   // centavos (subtotal + fees; equal to subtotal for now)
+  serviceFee    Int            @default(0)   // centavos — PayMongo pass-through / margin
+  total         Int            @default(0)   // centavos (subtotal + serviceFee)
+  paymongoSessionId String?    @unique
+  paymongoPaymentId String?
+  paidAt        DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 

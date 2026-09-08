@@ -14,14 +14,20 @@ export async function GET(req: NextRequest) {
 
 // POST /api/products — create a product
 export async function POST(req: NextRequest) {
-  const { name, description, imageUrl, category, basePrice, active } = await req.json();
+  const { name, description, imageUrl, imageUrls, sizeChartUrl, category, basePrice, active } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
+
+  const urls = Array.isArray(imageUrls)
+    ? imageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0).map((u) => u.trim())
+    : [];
 
   const product = await prisma.product.create({
     data: {
       name: name.trim(),
       description: description?.trim() || null,
-      imageUrl: imageUrl?.trim() || null,
+      imageUrl: imageUrl?.trim() || urls[0] || null,
+      imageUrls: urls,
+      sizeChartUrl: sizeChartUrl?.trim() || null,
       category: category?.trim() || null,
       basePrice: Math.max(0, Math.round(Number(basePrice) || 0)),
       active: typeof active === "boolean" ? active : true,

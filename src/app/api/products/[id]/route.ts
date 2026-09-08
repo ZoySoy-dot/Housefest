@@ -21,6 +21,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     name?: string;
     description?: string | null;
     imageUrl?: string | null;
+    imageUrls?: string[];
+    sizeChartUrl?: string | null;
     category?: string | null;
     basePrice?: number;
     active?: boolean;
@@ -29,6 +31,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof body.name        === "string")  data.name        = body.name.trim();
   if (typeof body.description === "string")  data.description = body.description.trim() || null;
   if (typeof body.imageUrl    === "string")  data.imageUrl    = body.imageUrl.trim() || null;
+  if (typeof body.sizeChartUrl === "string") data.sizeChartUrl = body.sizeChartUrl.trim() || null;
+  if (Array.isArray(body.imageUrls)) {
+    const urls = body.imageUrls
+      .filter((u: unknown): u is string => typeof u === "string" && u.trim().length > 0)
+      .map((u: string) => u.trim());
+    data.imageUrls = urls;
+    // Keep legacy imageUrl in sync with primary image
+    if (data.imageUrl === undefined) {
+      data.imageUrl = urls[0] ?? null;
+    }
+  }
   if (typeof body.category    === "string")  data.category    = body.category.trim() || null;
   if (typeof body.basePrice   === "number")  data.basePrice   = Math.max(0, Math.round(body.basePrice));
   if (typeof body.active      === "boolean") data.active      = body.active;

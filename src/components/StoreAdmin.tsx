@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import styles from "./AdminPanel.module.css";
+import ImageUploader from "./ImageUploader";
 
 type Variant = {
   id: number;
@@ -17,6 +18,8 @@ type Product = {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
+  sizeChartUrl: string | null;
   category: string | null;
   basePrice: number;   // centavos
   active: boolean;
@@ -35,8 +38,12 @@ function centavosToPesos(c: number) {
 export default function StoreAdmin({ onToast }: { onToast: (m: string, isError?: boolean) => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [newProduct, setNewProduct] = useState({
-    name: "", category: "", basePrice: "", imageUrl: "", description: "",
+  const [newProduct, setNewProduct] = useState<{
+    name: string; category: string; basePrice: string; description: string;
+    imageUrls: string[]; sizeChartUrl: string;
+  }>({
+    name: "", category: "", basePrice: "", description: "",
+    imageUrls: [], sizeChartUrl: "",
   });
 
   const load = useCallback(async () => {
@@ -56,12 +63,13 @@ export default function StoreAdmin({ onToast }: { onToast: (m: string, isError?:
         name: newProduct.name,
         category: newProduct.category,
         basePrice: pesosToCentavos(newProduct.basePrice),
-        imageUrl: newProduct.imageUrl,
+        imageUrls: newProduct.imageUrls,
+        sizeChartUrl: newProduct.sizeChartUrl || null,
         description: newProduct.description,
       }),
     });
     if (!res.ok) return onToast("Failed to add product.", true);
-    setNewProduct({ name: "", category: "", basePrice: "", imageUrl: "", description: "" });
+    setNewProduct({ name: "", category: "", basePrice: "", description: "", imageUrls: [], sizeChartUrl: "" });
     await load();
     onToast("Product added.");
   }
@@ -104,12 +112,6 @@ export default function StoreAdmin({ onToast }: { onToast: (m: string, isError?:
           onChange={(e) => setNewProduct((p) => ({ ...p, basePrice: e.target.value }))}
           className={styles.input}
         />
-        <input
-          placeholder="Image URL"
-          value={newProduct.imageUrl}
-          onChange={(e) => setNewProduct((p) => ({ ...p, imageUrl: e.target.value }))}
-          className={styles.input}
-        />
         <textarea
           placeholder="Description (optional)"
           value={newProduct.description}
@@ -117,6 +119,24 @@ export default function StoreAdmin({ onToast }: { onToast: (m: string, isError?:
           className={`${styles.input} ${styles.productDesc}`}
           rows={2}
         />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <ImageUploader
+            urls={newProduct.imageUrls}
+            onChange={(urls) => setNewProduct((p) => ({ ...p, imageUrls: urls }))}
+            onToast={onToast}
+            label="Product images (first = primary)"
+          />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <ImageUploader
+            urls={newProduct.sizeChartUrl ? [newProduct.sizeChartUrl] : []}
+            onChange={(urls) => setNewProduct((p) => ({ ...p, sizeChartUrl: urls[0] ?? "" }))}
+            onToast={onToast}
+            single
+            folder="size-charts"
+            label="Size chart (optional)"
+          />
+        </div>
         <button onClick={addProduct} className={styles.addBtn}>+ Add product</button>
       </div>
 
@@ -150,12 +170,19 @@ function ProductRow({
   onToast: (m: string, isError?: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({
+  const initialImages = product.imageUrls && product.imageUrls.length > 0
+    ? product.imageUrls
+    : (product.imageUrl ? [product.imageUrl] : []);
+  const [draft, setDraft] = useState<{
+    name: string; category: string; basePrice: string; description: string;
+    imageUrls: string[]; sizeChartUrl: string;
+  }>({
     name: product.name,
     category: product.category ?? "",
     basePrice: centavosToPesos(product.basePrice),
-    imageUrl: product.imageUrl ?? "",
     description: product.description ?? "",
+    imageUrls: initialImages,
+    sizeChartUrl: product.sizeChartUrl ?? "",
   });
 
   async function saveEdit() {
@@ -167,7 +194,8 @@ function ProductRow({
         name: draft.name,
         category: draft.category,
         basePrice: pesosToCentavos(draft.basePrice),
-        imageUrl: draft.imageUrl,
+        imageUrls: draft.imageUrls,
+        sizeChartUrl: draft.sizeChartUrl || null,
         description: draft.description,
       }),
     });
@@ -235,14 +263,24 @@ function ProductRow({
                   className={styles.input}
                 />
               </label>
-              <label className={`${styles.editLabel} ${styles.editLabelFull}`}>
-                <span>Image URL</span>
-                <input
-                  value={draft.imageUrl}
-                  onChange={(e) => setDraft((p) => ({ ...p, imageUrl: e.target.value }))}
-                  className={styles.input}
+              <div className={`${styles.editLabel} ${styles.editLabelFull}`}>
+                <ImageUploader
+                  urls={draft.imageUrls}
+                  onChange={(urls) => setDraft((p) => ({ ...p, imageUrls: urls }))}
+                  onToast={onToast}
+                  label="Product images (first = primary · drag to reorder)"
                 />
-              </label>
+              </div>
+              <div className={`${styles.editLabel} ${styles.editLabelFull}`}>
+                <ImageUploader
+                  urls={draft.sizeChartUrl ? [draft.sizeChartUrl] : []}
+                  onChange={(urls) => setDraft((p) => ({ ...p, sizeChartUrl: urls[0] ?? "" }))}
+                  onToast={onToast}
+                  single
+                  folder="size-charts"
+                  label="Size chart (optional)"
+                />
+              </div>
               <label className={`${styles.editLabel} ${styles.editLabelFull}`}>
                 <span>Description</span>
                 <textarea

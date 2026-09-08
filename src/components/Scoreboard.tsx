@@ -134,29 +134,35 @@ export default function Scoreboard() {
   return (
     <div style={S.root}>
       {/* ═══ HEADER ═══ */}
-      <header style={S.header}>
+      <header style={S.header} className="hf-header">
         <img src="/DLSUBackground.jpg" alt="" aria-hidden style={S.headerBg} />
         <div style={S.headerScrim} />
 
         {/* LEFT — SC brand */}
-        <div style={S.headerBrand}>
-          <img src="/SC_Logo.svg" alt="SC" style={S.brandLogo} />
-          <div style={S.brandText}>
+        <div style={S.headerBrand} className="hf-header-brand">
+          <img src="/SC_Logo.svg" alt="SC" style={S.brandLogo} className="hf-header-logo" />
+          <div style={S.brandText} className="hf-header-brand-text">
             <span style={S.brandLine1}>STUDENT</span>
             <span style={S.brandLine2}>COUNCIL</span>
           </div>
         </div>
 
         {/* CENTER — event title */}
-        <div style={S.headerCenter}>
-          <div style={S.eventBadge}>A.Y. 2025–2026</div>
-          <h1 style={S.eventTitle}>HOUSEFEST</h1>
-          <div style={S.eventSub}>DE LA SALLE UNIVERSITY</div>
+        <div style={S.headerCenter} className="hf-header-center">
+          <div style={S.eventBadge} className="hf-header-badge">A.Y. 2026–2027</div>
+          <h1 style={S.eventTitle} className="hf-header-title">HOUSEFEST</h1>
         </div>
 
         {/* RIGHT — store link */}
         <div style={S.headerActions}>
-          <a href="/store" style={S.storeLink}>STORE</a>
+          <a href="/store" style={S.storeLink} className="hf-header-store">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <path d="M16 10a4 4 0 01-8 0"/>
+            </svg>
+            Shop merch
+          </a>
         </div>
       </header>
 
@@ -179,6 +185,9 @@ export default function Scoreboard() {
               background: `linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.75) 100%)`,
             }} />
             <div style={{ ...S.heroLeft, position: "relative", zIndex: 2 }}>
+              <div style={S.heroPlacement}>
+                <span style={S.heroPlacementOrd}>{leader.placement}</span>
+              </div>
               <div style={S.heroTeamName}>{leader.name}</div>
             </div>
 
@@ -417,8 +426,44 @@ export default function Scoreboard() {
         @keyframes hfPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
         @keyframes hfSpin  { to { transform: rotate(360deg) } }
         a[href="/store"]:hover {
-          background: #00ffa0 !important;
-          transform: translateY(-1px);
+          background: #171b21 !important;
+          border-color: #3a414b !important;
+          color: #ffffff !important;
+        }
+
+        /* Mobile header: relax the grid, shrink chrome */
+        @media (max-width: 720px) {
+          .hf-header {
+            grid-template-columns: auto 1fr auto !important;
+            padding: 0.6rem 0.75rem !important;
+            gap: 10px;
+          }
+          .hf-header-logo {
+            width: 40px !important;
+            height: 40px !important;
+          }
+          .hf-header-brand-text { display: none !important; }
+          .hf-header-badge {
+            font-size: 0.5rem !important;
+            padding: 2px 8px !important;
+          }
+          .hf-header-title {
+            font-size: 1.35rem !important;
+            letter-spacing: 0.05em !important;
+          }
+          .hf-header-sub {
+            font-size: 0.5rem !important;
+          }
+          .hf-header-store {
+            font-size: 0.75rem !important;
+            padding: 7px 10px !important;
+          }
+          .hf-header-store svg { width: 12px; height: 12px; }
+        }
+
+        @media (max-width: 400px) {
+          .hf-header-sub { display: none !important; }
+          .hf-header-title { font-size: 1.15rem !important; }
         }
       `}</style>
     </div>
@@ -546,16 +591,15 @@ const S: Record<string, React.CSSProperties> = {
     gap: 8,
     fontFamily: "var(--font-body)",
     fontSize: "0.82rem",
-    fontWeight: 700,
-    letterSpacing: "0.16em",
-    color: "#000",
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+    color: "#e6e8eb",
     textDecoration: "none",
-    padding: "12px 22px",
-    border: "2px solid #00ff88",
-    borderRadius: 4,
-    background: "#00ff88",
-    transition: "background 0.15s, transform 0.15s",
-    textTransform: "uppercase",
+    padding: "9px 14px",
+    border: "1px solid #2b3038",
+    borderRadius: 6,
+    background: "rgba(255, 255, 255, 0.03)",
+    transition: "background 0.12s, border-color 0.12s, color 0.12s",
   },
   /* ticker */
   ticker: {
@@ -604,6 +648,33 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: "0.04em",
     lineHeight: 0.95,
     textTransform: "uppercase",
+  },
+  heroPlacement: {
+    display: "inline-flex",
+    alignItems: "baseline",
+    gap: 8,
+    padding: "5px 12px",
+    background: "rgba(255, 215, 0, 0.12)",
+    border: "1px solid rgba(255, 215, 0, 0.55)",
+    borderLeft: "3px solid #FFD700",
+    borderRadius: 2,
+    color: "#FFD700",
+    alignSelf: "flex-start",
+    marginBottom: 6,
+  },
+  heroPlacementOrd: {
+    fontFamily: "var(--font-body)",
+    fontSize: "0.95rem",
+    fontWeight: 800,
+    letterSpacing: "0.05em",
+    lineHeight: 1,
+  },
+  heroPlacementLabel: {
+    fontSize: "0.6rem",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    color: "rgba(255, 215, 0, 0.75)",
+    lineHeight: 1,
   },
   heroHouse: { fontSize: "0.8rem", fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase" },
   heroRecord: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 },
@@ -743,7 +814,11 @@ const S: Record<string, React.CSSProperties> = {
   barFill: { height: "100%", borderRadius: 4, transition: "width 0.7s ease", minWidth: 0 },
   barPct: { fontSize: "0.6rem", fontWeight: 700, color: "#555", flexShrink: 0, minWidth: 28, textAlign: "right" },
 
-  recordBox: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, position: "relative", zIndex: 1 },
+  recordBox: {
+    display: "flex", flexDirection: "column", alignItems: "flex-end",
+    gap: 4, position: "relative", zIndex: 1,
+    minWidth: 62,
+  },
   recordText: {
     fontFamily: "var(--font-body)",
     fontSize: "clamp(0.95rem, 1.9vw, 1.15rem)",
@@ -751,7 +826,8 @@ const S: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     letterSpacing: "-0.01em",
     fontVariantNumeric: "tabular-nums",
-    display: "flex", alignItems: "baseline", gap: 1,
+    display: "inline-flex", alignItems: "baseline", gap: 1,
+    height: "1em",
   },
   recordDash: { padding: "0 3px", color: "#555", fontWeight: 400 },
   recordLabel: {
@@ -760,9 +836,14 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: "0.1em",
     color: "#555",
     fontFamily: "var(--font-body)",
+    lineHeight: 1,
   },
 
-  scoreBox: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, position: "relative", zIndex: 1 },
+  scoreBox: {
+    display: "flex", flexDirection: "column", alignItems: "flex-end",
+    gap: 4, position: "relative", zIndex: 1,
+    minWidth: 40,
+  },
   scoreNum: {
     fontFamily: "var(--font-body)",
     fontSize: "clamp(0.95rem, 1.9vw, 1.15rem)",
@@ -771,6 +852,9 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: "-0.01em",
     fontVariantNumeric: "tabular-nums",
     color: "#00ff88",
+    display: "inline-flex",
+    alignItems: "baseline",
+    height: "1em",
   },
   scoreSub: {
     fontSize: "0.5rem",
@@ -778,6 +862,7 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: "0.1em",
     color: "#3a5a4a",
     fontFamily: "var(--font-body)",
+    lineHeight: 1,
   },
 
   empty: {

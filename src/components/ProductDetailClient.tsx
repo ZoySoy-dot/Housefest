@@ -19,6 +19,8 @@ type Product = {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
+  sizeChartUrl: string | null;
   category: string | null;
   basePrice: number;
   active: boolean;
@@ -31,6 +33,8 @@ export default function ProductDetailClient({ productId }: { productId: number }
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [qty, setQty] = useState(1);
   const [flash, setFlash] = useState("");
+  const [activeImage, setActiveImage] = useState(0);
+  const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const { add } = useCart();
 
   useEffect(() => {
@@ -91,8 +95,14 @@ export default function ProductDetailClient({ productId }: { productId: number }
 
   const hasVariants = product.variants.length > 0;
   const unitPrice = chosenVariant?.price ?? product.basePrice;
-  const stock = chosenVariant?.stock ?? (hasVariants ? 0 : Infinity);
-  const canAdd = hasVariants ? !!chosenVariant && stock > 0 : true;
+  const canAdd = hasVariants ? !!chosenVariant : true;
+
+  const images = (product.imageUrls && product.imageUrls.length > 0)
+    ? product.imageUrls
+    : (product.imageUrl ? [product.imageUrl] : []);
+  const currentImage = images[activeImage] ?? null;
+  const hasSizeChart = !!product.sizeChartUrl;
+  const hasSizeVariant = groups.some((g) => /size/i.test(g.group));
 
   function handleAdd() {
     if (!product) return;
@@ -102,7 +112,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
         variantId: chosenVariant?.id ?? null,
         name: product.name,
         variantLabel: chosenVariant ? `${chosenVariant.group} · ${chosenVariant.option}` : null,
-        imageUrl: product.imageUrl,
+        imageUrl: currentImage,
         unitPrice,
       },
       qty,
@@ -114,12 +124,59 @@ export default function ProductDetailClient({ productId }: { productId: number }
   return (
     <ShellWithHeader>
       <div className={styles.detail}>
-        <div className={styles.detailImg}>
-          {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.imageUrl} alt={product.name} />
-          ) : (
-            <div className={styles.cardImgPlaceholder}>No image</div>
+        <div className={styles.detailImgCol}>
+          <div className={styles.detailImg}>
+            {currentImage ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentImage} alt={product.name} />
+                {images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className={`${styles.carouselArrow} ${styles.carouselArrowLeft}`}
+                      onClick={() => setActiveImage((i) => (i - 1 + images.length) % images.length)}
+                      aria-label="Previous image"
+                    >‹</button>
+                    <button
+                      type="button"
+                      className={`${styles.carouselArrow} ${styles.carouselArrowRight}`}
+                      onClick={() => setActiveImage((i) => (i + 1) % images.length)}
+                      aria-label="Next image"
+                    >›</button>
+                    <div className={styles.carouselDots}>
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`${styles.carouselDot} ${i === activeImage ? styles.carouselDotActive : ""}`}
+                          onClick={() => setActiveImage(i)}
+                          aria-label={`Image ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className={styles.cardImgPlaceholder}>No image</div>
+            )}
+          </div>
+          {images.length > 1 && (
+            <div className={styles.carouselThumbs}>
+              {images.map((url, i) => (
+                <button
+                  key={url}
+                  type="button"
+                  className={`${styles.carouselThumb} ${i === activeImage ? styles.carouselThumbActive : ""}`}
+                  onClick={() => setActiveImage(i)}
+                  aria-label={`View image ${i + 1}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -132,30 +189,51 @@ export default function ProductDetailClient({ productId }: { productId: number }
             <p className={styles.detailDesc}>{product.description}</p>
           )}
 
-          {groups.map((g) => (
-            <div key={g.group} className={styles.optionGroup}>
-              <div className={styles.optionGroupLabel}>{g.group}</div>
-              <div className={styles.optionList}>
-                {g.options.map((v) => {
-                  const isSelected = selected[g.group] === v.option;
-                  const disabled = v.stock === 0;
-                  return (
+          {groups.map((g) => {
+            const isSizeGroup = /size/i.test(g.group);
+            return (
+              <div key={g.group} className={styles.optionGroup}>
+                <div className={styles.optionGroupHead}>
+                  <div className={styles.optionGroupLabel}>{g.group}</div>
+                  {isSizeGroup && hasSizeChart && (
                     <button
-                      key={v.id}
-                      disabled={disabled}
-                      className={`${styles.optionBtn} ${isSelected ? styles.optionBtnActive : ""}`}
-                      onClick={() =>
-                        setSelected((p) => ({ ...p, [g.group]: v.option }))
-                      }
+                      type="button"
+                      className={styles.sizeChartBtn}
+                      onClick={() => setSizeChartOpen(true)}
                     >
-                      {v.option}
-                      {disabled && <span className={styles.optionOut}>Out</span>}
+                      Size chart
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+                <div className={styles.optionList}>
+                  {g.options.map((v) => {
+                    const isSelected = selected[g.group] === v.option;
+                    return (
+                      <button
+                        key={v.id}
+                        className={`${styles.optionBtn} ${isSelected ? styles.optionBtnActive : ""}`}
+                        onClick={() =>
+                          setSelected((p) => ({ ...p, [g.group]: v.option }))
+                        }
+                      >
+                        {v.option}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+          {hasSizeChart && !hasSizeVariant && (
+            <button
+              type="button"
+              className={styles.sizeChartBtn}
+              style={{ alignSelf: "flex-start" }}
+              onClick={() => setSizeChartOpen(true)}
+            >
+              View size chart
+            </button>
+          )}
 
           <div className={styles.qtyRow}>
             <div className={styles.qtyLabel}>Quantity</div>
@@ -181,13 +259,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
           {hasVariants && !chosenVariant && (
             <div className={styles.hint}>Select an option to continue.</div>
           )}
-          {chosenVariant && (
-            <div className={styles.hint}>
-              {chosenVariant.stock > 0
-                ? `${chosenVariant.stock} in stock`
-                : "Out of stock"}
-            </div>
-          )}
+          <div className={styles.hint}>Pre-order · pickup on release day</div>
 
           <button
             className={styles.primaryBtn}
@@ -200,7 +272,35 @@ export default function ProductDetailClient({ productId }: { productId: number }
           <Link href="/store" className={styles.backLink}>Back to store</Link>
         </div>
       </div>
+
+      {sizeChartOpen && product.sizeChartUrl && (
+        <SizeChartModal url={product.sizeChartUrl} onClose={() => setSizeChartOpen(false)} />
+      )}
     </ShellWithHeader>
+  );
+}
+
+function SizeChartModal({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  return (
+    <div className={styles.sizeChartModal} role="dialog" aria-label="Size chart">
+      <div className={styles.sizeChartBackdrop} onClick={onClose} />
+      <div className={styles.sizeChartBox}>
+        <button className={styles.sizeChartClose} onClick={onClose} aria-label="Close">×</button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt="Size chart" />
+      </div>
+    </div>
   );
 }
 

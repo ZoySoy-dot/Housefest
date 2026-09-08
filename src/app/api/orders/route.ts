@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     notes?: string;
     status?: "pending" | "paid" | "fulfilled" | "cancelled";
     source?: "online" | "manual";
-    paymentMethod?: "cash" | "gcash" | "maya" | "card" | "bank" | "other";
+    paymentMethod?: "cash" | "gcash" | "maya" | "card" | "bank" | "paymongo" | "other";
     paidAmount?: number;
     items: IncomingItem[];
   };

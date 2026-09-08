@@ -19,6 +19,7 @@ type Product = {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
   category: string | null;
   basePrice: number;
   active: boolean;
@@ -140,8 +141,29 @@ export default function StoreClient() {
       </main>
 
       <footer className={styles.footer}>
+        <div className={styles.footerPayments}>
+          <div className={styles.footerPaymentsLabel}>Payments accepted</div>
+          <div className={styles.footerPaymentsRow}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className={styles.footerPaymentLogo} title="GCash">
+              <img src="/pay/gcash.svg" alt="GCash" />
+            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className={styles.footerPaymentLogo} title="Maya">
+              <img src="/pay/maya.svg" alt="Maya" />
+            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className={styles.footerPaymentLogo} title="GrabPay">
+              <img src="/pay/grabpay.png" alt="GrabPay" />
+            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className={styles.footerPaymentLogo} title="QR Ph">
+              <img src="/pay/qrph.png" alt="QR Ph" />
+            </span>
+          </div>
+        </div>
         <div className={styles.footerInner}>
-          <span>De La Salle University Student Council · Housefest 2025–2026</span>
+          <span>Student Council · A.Y. 2026–2027</span>
           <div className={styles.footerLinks}>
             <Link href="/" className={styles.footerLink}>Scoreboard</Link>
             <Link href="/store" className={styles.footerLink}>Store</Link>
@@ -169,12 +191,14 @@ function ProductCard({ product }: { product: Product }) {
   const isLowStock =
     totalStock !== null && totalStock > 0 && totalStock <= LOW_STOCK_THRESHOLD;
 
+  const primaryImage = product.imageUrls?.[0] ?? product.imageUrl ?? null;
+
   return (
     <Link href={`/store/${product.id}`} className={styles.card}>
       <div className={styles.cardImg}>
-        {product.imageUrl ? (
+        {primaryImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt={product.name} />
+          <img src={primaryImage} alt={product.name} />
         ) : (
           <div className={styles.cardImgPlaceholder}>
             <ImageIcon />

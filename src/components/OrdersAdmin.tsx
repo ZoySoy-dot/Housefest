@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./AdminPanel.module.css";
 
 type OrderStatus = "pending" | "paid" | "fulfilled" | "cancelled";
 type OrderSource = "online" | "manual";
-type PaymentMethod = "cash" | "gcash" | "maya" | "card" | "bank" | "other";
+type PaymentMethod = "cash" | "gcash" | "maya" | "card" | "bank" | "paymongo" | "other";
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -13,6 +13,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   maya: "Maya",
   card: "Card",
   bank: "Bank transfer",
+  paymongo: "PayMongo",
   other: "Other",
 };
 
@@ -39,7 +40,11 @@ type Order = {
   paymentMethod: PaymentMethod | null;
   paidAmount: number;
   subtotal: number;
+  serviceFee: number;
   total: number;
+  paymongoSessionId: string | null;
+  paymongoPaymentId: string | null;
+  paidAt: string | null;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
@@ -78,6 +83,26 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
+const ALL_STATUSES: OrderStatus[] = ["pending", "paid", "fulfilled", "cancelled"];
+
+type SortKey = "id" | "createdAt" | "customerName" | "total" | "status";
+const STATUS_ORDER: Record<OrderStatus, number> = {
+  pending: 0, paid: 1, fulfilled: 2, cancelled: 3,
+};
+
+// Online (PayMongo) orders can only move forward: paid → fulfilled or cancelled.
+// Pending can only be cancelled (PayMongo owns paid).
+function allowedStatusOptions(o: Pick<Order, "source" | "status">): OrderStatus[] {
+  if (o.source !== "online") return ALL_STATUSES;
+  const map: Record<OrderStatus, OrderStatus[]> = {
+    pending:   ["pending", "cancelled"],
+    paid:      ["paid", "fulfilled", "cancelled"],
+    fulfilled: ["fulfilled"],
+    cancelled: ["cancelled"],
+  };
+  return map[o.status];
+}
+
 export default function OrdersAdmin({
   onToast,
 }: {
@@ -87,8 +112,30 @@ export default function OrdersAdmin({
   const [loaded, setLoaded] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [showRecord, setShowRecord] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [drawerOrderId, setDrawerOrderId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [menuOpen, setMenuOpen] = useState<number | null>(null);
+
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir(key === "customerName" || key === "status" ? "asc" : "desc");
+    }
+  }
+
+  function toggleSelected(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const load = useCallback(async () => {
     const url = new URL("/api/orders", window.location.origin);
@@ -120,23 +167,14 @@ export default function OrdersAdmin({
     onToast("Order deleted.");
   }
 
-  function toggle(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   function exportCsv() {
     const header = [
       "id", "createdAt", "status", "source",
       "customerName", "customerEmail", "customerPhone", "house",
       "paymentMethod", "paidAmount_php",
-      "items", "subtotal_php", "total_php",
+      "items", "subtotal_php", "serviceFee_php", "total_php",
     ];
-    const rows = orders.map((o) => [
+    const rows = sortedOrders.map((o) => [
       o.id,
       new Date(o.createdAt).toISOString(),
       o.status,
@@ -149,6 +187,7 @@ export default function OrdersAdmin({
       (o.paidAmount / 100).toFixed(2),
       csvEscape(o.items.map((i) => `${i.qty}× ${i.productName}${i.variantLabel ? ` (${i.variantLabel})` : ""}`).join("; ")),
       (o.subtotal / 100).toFixed(2),
+      (o.serviceFee / 100).toFixed(2),
       (o.total / 100).toFixed(2),
     ].join(","));
     const csv = [header.join(","), ...rows].join("\n");
@@ -168,6 +207,51 @@ export default function OrdersAdmin({
     return { count: orders.length, revenue };
   }, [orders]);
 
+  const sortedOrders = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...orders].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case "id": cmp = a.id - b.id; break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case "customerName":
+          cmp = a.customerName.localeCompare(b.customerName);
+          break;
+        case "total": cmp = a.total - b.total; break;
+        case "status":
+          cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+          break;
+      }
+      return cmp * dir;
+    });
+  }, [orders, sortBy, sortDir]);
+
+  const drawerOrder = drawerOrderId != null ? orders.find((o) => o.id === drawerOrderId) ?? null : null;
+
+  const tabCounts = useMemo(() => {
+    const c: Record<string, number> = { all: orders.length };
+    for (const o of orders) c[o.status] = (c[o.status] ?? 0) + 1;
+    return c;
+  }, [orders]);
+
+  async function bulkChangeStatus(status: OrderStatus) {
+    const ids = Array.from(selected);
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/orders/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }),
+      ),
+    );
+    setSelected(new Set());
+    await load();
+    onToast(`${ids.length} order${ids.length === 1 ? "" : "s"} → ${STATUS_LABEL[status]}`);
+  }
+
   return (
     <section className={styles.section}>
       <div className={styles.sectionHead}>
@@ -177,184 +261,174 @@ export default function OrdersAdmin({
         </span>
       </div>
 
-      {/* filter/action bar */}
-      <div className={styles.ordersBar}>
-        <div className={styles.filterBar}>
-          {(["all", "pending", "paid", "fulfilled", "cancelled"] as const).map((s) => (
-            <button
-              key={s}
-              className={`${styles.filterBtn} ${statusFilter === s ? styles.filterBtnActive : ""}`}
-              onClick={() => setStatusFilter(s)}
-            >
-              {s === "all" ? "All" : STATUS_LABEL[s]}
-            </button>
-          ))}
+      {/* Tabs */}
+      <div className={styles.ordersTabs}>
+        {STATUS_TAB_ORDER.map((s) => (
+          <button
+            key={s}
+            className={`${styles.ordersTab} ${statusFilter === s ? styles.ordersTabActive : ""}`}
+            onClick={() => setStatusFilter(s)}
+          >
+            {s === "all" ? "All" : STATUS_LABEL[s]}
+            {tabCounts[s] != null && <span className={styles.ordersTabCount}>{tabCounts[s]}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className={styles.ordersToolbar}>
+        <input
+          type="search"
+          placeholder="Search name, email, phone"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={styles.ordersSearch}
+        />
+        <div className={styles.ordersToolbarSpacer} />
+        <button className={styles.ordersToolbarBtn} onClick={exportCsv} disabled={orders.length === 0}>
+          Export CSV
+        </button>
+        <button className={styles.ordersToolbarPrimary} onClick={() => setShowRecord(true)}>
+          Record sale
+        </button>
+      </div>
+
+      {/* Bulk bar */}
+      {selected.size > 0 && (
+        <div className={styles.bulkBar}>
+          <strong>{selected.size} selected</strong>
+          <span className={styles.bulkBarSpacer} />
+          <button className={styles.ordersToolbarBtn} onClick={() => bulkChangeStatus("fulfilled")}>
+            Mark fulfilled
+          </button>
+          <button className={styles.ordersToolbarBtn} onClick={() => bulkChangeStatus("cancelled")}>
+            Cancel
+          </button>
+          <button className={styles.ordersToolbarBtn} onClick={() => setSelected(new Set())}>
+            Clear
+          </button>
         </div>
-        <div className={styles.ordersBarRight}>
-          <input
-            placeholder="Search name, email, phone"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.input}
-            style={{ flex: 1, minWidth: 220 }}
-          />
-          <button className={styles.chipBtn} onClick={exportCsv} disabled={orders.length === 0}>
-            Export CSV
-          </button>
-          <button className={styles.addBtn} onClick={() => setShowRecord(true)}>
-            + Record sale
-          </button>
+      )}
+
+      {/* Table */}
+      <div className={styles.ordersTableV2}>
+        <div className={styles.ordersTableGrid}>
+          <div className={styles.ordersTableHead}>
+            <div className={styles.ordersCellCheck}>
+              <input
+                type="checkbox"
+                aria-label="Select all"
+                checked={sortedOrders.length > 0 && sortedOrders.every((o) => selected.has(o.id))}
+                onChange={(e) => {
+                  if (e.target.checked) setSelected(new Set(sortedOrders.map((o) => o.id)));
+                  else setSelected(new Set());
+                }}
+              />
+            </div>
+            <SortHead label="Order" active={sortBy === "createdAt"} dir={sortDir} onClick={() => toggleSort("createdAt")} />
+            <SortHead label="Customer" active={sortBy === "customerName"} dir={sortDir} onClick={() => toggleSort("customerName")} />
+            <div className={styles.ordersColHideSm}>Items</div>
+            <div className={styles.ordersColHideMd}>Payment</div>
+            <SortHead label="Total" active={sortBy === "total"} dir={sortDir} onClick={() => toggleSort("total")} align="right" />
+            <SortHead label="Status" active={sortBy === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
+            <div className={styles.ordersColHideMd}>Updated</div>
+            <div />
+          </div>
+
+          {!loaded ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`${styles.ordersTableRow} ${styles.skeletonRow}`}>
+                {Array.from({ length: 9 }).map((_, j) => (
+                  <div key={j}><div className={styles.skeletonBar} /></div>
+                ))}
+              </div>
+            ))
+          ) : sortedOrders.length === 0 ? (
+            <div style={{ gridColumn: "1 / -1" }} className={styles.ordersEmpty}>
+              <div className={styles.ordersEmptyTitle}>No orders match this view</div>
+              <div>Try clearing the search or switching tabs.</div>
+            </div>
+          ) : (
+            sortedOrders.map((o) => {
+              const summary = itemsSummary(o.items);
+              const isSelected = selected.has(o.id);
+              return (
+                <div
+                  key={o.id}
+                  className={`${styles.ordersTableRow} ${isSelected ? styles.ordersTableRowSelected : ""}`}
+                  onClick={() => setDrawerOrderId(o.id)}
+                >
+                  <div className={styles.ordersCellCheck} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select order ${o.id}`}
+                      checked={isSelected}
+                      onChange={() => toggleSelected(o.id)}
+                    />
+                  </div>
+                  <div>
+                    <span className={styles.ordersCellId}>#{o.id}</span>
+                  </div>
+                  <div className={styles.ordersCellCustomer}>
+                    <span className={styles.ordersCellCustomerName}>{o.customerName}</span>
+                    {(o.customerEmail || o.house) && (
+                      <span className={styles.ordersCellCustomerSub}>
+                        {o.customerEmail ?? o.house}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`${styles.ordersCellItems} ${styles.ordersColHideSm}`}>
+                    {summary.first}
+                    {summary.extra > 0 && (
+                      <span className={styles.ordersCellItemsCount}>+{summary.extra}</span>
+                    )}
+                  </div>
+                  <div className={`${styles.ordersCellPayment} ${styles.ordersColHideMd}`}>
+                    {o.paymentMethod ? PAYMENT_LABEL[o.paymentMethod] : <span className={styles.ordersCellPaymentNone}>—</span>}
+                  </div>
+                  <div className={styles.ordersCellTotal}>{formatPHP(o.total)}</div>
+                  <div>
+                    <span className={`${styles.ordersCellStatus} ${statusDotClass(o.status)}`}>
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                  </div>
+                  <div className={`${styles.ordersCellUpdated} ${styles.ordersColHideMd}`}>
+                    {timeAgo(o.updatedAt)}
+                  </div>
+                  <div className={styles.ordersCellAction} onClick={(e) => e.stopPropagation()}>
+                    <RowMenu
+                      order={o}
+                      open={menuOpen === o.id}
+                      onOpen={() => setMenuOpen(o.id)}
+                      onClose={() => setMenuOpen(null)}
+                      onView={() => setDrawerOrderId(o.id)}
+                      onChangeStatus={(s) => changeStatus(o.id, s)}
+                      onDelete={() => deleteOrder(o.id)}
+                    />
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {!loaded ? (
-        <div className={styles.empty}>Loading orders…</div>
-      ) : orders.length === 0 ? (
-        <div className={styles.empty}>
-          No orders yet. Use &ldquo;Record sale&rdquo; to log a manual booth sale.
-        </div>
-      ) : (
-        <div className={styles.ordersTable}>
-          <div className={`${styles.orderRow} ${styles.orderHeaderRow}`}>
-            <span>Order</span>
-            <span>Customer</span>
-            <span>Contact</span>
-            <span>Items</span>
-            <span>Payment</span>
-            <span>Paid</span>
-            <span>Status</span>
-            <span></span>
-          </div>
-          {orders.map((o) => (
-            <div key={o.id}>
-              <div className={styles.orderRow}>
-                <div className={styles.orderIdCell}>
-                  <span className={styles.orderId}>#{o.id}</span>
-                  <span className={styles.orderMeta}>
-                    {formatDate(o.createdAt)} · {o.source}
-                  </span>
-                </div>
-                <div className={styles.orderCustomer}>
-                  <span className={styles.orderName}>{o.customerName}</span>
-                  {o.house && (
-                    <span className={styles.orderMeta}>{o.house}</span>
-                  )}
-                </div>
-                <div className={styles.orderCustomer}>
-                  {o.customerEmail && (
-                    <span className={styles.orderMeta} title={o.customerEmail}>
-                      {o.customerEmail}
-                    </span>
-                  )}
-                  {o.customerPhone && (
-                    <span className={styles.orderMeta}>{o.customerPhone}</span>
-                  )}
-                  {!o.customerEmail && !o.customerPhone && (
-                    <span className={styles.orderMeta}>—</span>
-                  )}
-                </div>
-                <div className={styles.orderItems}>
-                  {o.items.slice(0, 2).map((i) => (
-                    <span key={i.id} className={styles.orderMeta}>
-                      {i.qty}× {i.productName}{i.variantLabel && <> ({i.variantLabel})</>}
-                    </span>
-                  ))}
-                  {o.items.length > 2 && (
-                    <span className={styles.orderMeta}>+{o.items.length - 2} more</span>
-                  )}
-                </div>
-                <div>
-                  {o.paymentMethod ? (
-                    <span className={styles.paymentTag}>{PAYMENT_LABEL[o.paymentMethod]}</span>
-                  ) : (
-                    <span className={styles.orderMeta}>—</span>
-                  )}
-                </div>
-                <div className={styles.orderPaidCell}>
-                  <span className={styles.orderTotal}>{formatPHP(o.paidAmount)}</span>
-                  {o.paidAmount !== o.total && (
-                    <span className={styles.orderMeta}>of {formatPHP(o.total)}</span>
-                  )}
-                </div>
-                <div>
-                  <select
-                    className={`${styles.statusSelect} ${styles[`status_${o.status}`]}`}
-                    value={o.status}
-                    onChange={(e) => changeStatus(o.id, e.target.value as OrderStatus)}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="fulfilled">Fulfilled</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-                <div className={styles.orderRowActions}>
-                  <button className={styles.chipBtn} onClick={() => toggle(o.id)}>
-                    {expanded.has(o.id) ? "Hide" : "Details"}
-                  </button>
-                  <button
-                    className={`${styles.chipBtn} ${styles.chipBtnDanger}`}
-                    onClick={() => deleteOrder(o.id)}
-                  >Delete</button>
-                </div>
-              </div>
-
-              {expanded.has(o.id) && (
-                <div className={styles.orderDetail}>
-                  <div className={styles.orderDetailGrid}>
-                    <div>
-                      <div className={styles.orderDetailLabel}>Customer</div>
-                      <div>{o.customerName}</div>
-                      <div className={styles.orderMeta}>
-                        {o.customerEmail ?? "—"} · {o.customerPhone ?? "—"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className={styles.orderDetailLabel}>House</div>
-                      <div>{o.house ?? "—"}</div>
-                    </div>
-                    <div>
-                      <div className={styles.orderDetailLabel}>Payment</div>
-                      <div>
-                        {o.paymentMethod ? PAYMENT_LABEL[o.paymentMethod] : "—"} ·{" "}
-                        <span className={styles.orderTotal} style={{ display: "inline" }}>
-                          {formatPHP(o.paidAmount)}
-                        </span>
-                        {o.paidAmount !== o.total && (
-                          <span className={styles.orderMeta}> of {formatPHP(o.total)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className={styles.orderDetailLabel}>Notes</div>
-                      <div>{o.notes ?? "—"}</div>
-                    </div>
-                  </div>
-                  <div className={styles.orderItemTable}>
-                    <div className={`${styles.orderItemRow} ${styles.orderItemHeader}`}>
-                      <span>Item</span>
-                      <span>Qty</span>
-                      <span>Unit</span>
-                      <span>Line total</span>
-                    </div>
-                    {o.items.map((i) => (
-                      <div key={i.id} className={styles.orderItemRow}>
-                        <span>
-                          {i.productName}
-                          {i.variantLabel && <span className={styles.orderMeta}> · {i.variantLabel}</span>}
-                        </span>
-                        <span>{i.qty}</span>
-                        <span>{formatPHP(i.unitPrice)}</span>
-                        <span>{formatPHP(i.lineTotal)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {drawerOrder && (
+        <OrderDrawer
+          order={drawerOrder}
+          onClose={() => setDrawerOrderId(null)}
+          onChangeStatus={(s) => {
+            changeStatus(drawerOrder.id, s);
+          }}
+          onDelete={() => {
+            setDrawerOrderId(null);
+            deleteOrder(drawerOrder.id);
+          }}
+        />
       )}
+
+      {/* legacy hidden bar preserved for reference (nothing rendered) */}
+      <div style={{ display: "none" }} className={styles.ordersBar} />
 
       {showRecord && (
         <RecordSaleModal
@@ -367,9 +441,300 @@ export default function OrdersAdmin({
   );
 }
 
+/* Small sortable header cell */
+function SortHead({
+  label, active, dir, onClick, align,
+}: {
+  label: string;
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+  align?: "right";
+}) {
+  return (
+    <div style={{ textAlign: align === "right" ? "right" : "left", justifyContent: align === "right" ? "flex-end" : undefined, display: "flex" }}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${styles.ordersHeadSort} ${active ? styles.ordersHeadSortActive : ""}`}
+      >
+        {label}
+        {active && (
+          <span className={styles.ordersHeadSortArrow}>
+            {dir === "asc" ? "↑" : "↓"}
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function csvEscape(v: string) {
   if (/[,"\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
+}
+
+const STATUS_TAB_ORDER: (OrderStatus | "all")[] = ["all", "pending", "paid", "fulfilled", "cancelled"];
+
+function statusDotClass(s: OrderStatus) {
+  return s === "pending"   ? styles.statusDotPending
+       : s === "paid"      ? styles.statusDotPaid
+       : s === "fulfilled" ? styles.statusDotFulfilled
+       :                     styles.statusDotCancelled;
+}
+
+function itemsSummary(items: OrderItem[]) {
+  const qty = items.reduce((s, i) => s + i.qty, 0);
+  const first = items[0]?.productName ?? "—";
+  return { qty, first, extra: items.length - 1 };
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.round(diff / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+/* Kebab (three-dot) icon */
+function MoreIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="1"/>
+      <circle cx="12" cy="5" r="1"/>
+      <circle cx="12" cy="19" r="1"/>
+    </svg>
+  );
+}
+
+/* Row menu popover */
+function RowMenu({
+  order, open, onOpen, onClose, onChangeStatus, onDelete, onView,
+}: {
+  order: Order;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onChangeStatus: (s: OrderStatus) => void;
+  onDelete: () => void;
+  onView: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open, onClose]);
+
+  const opts = allowedStatusOptions(order).filter((s) => s !== order.status);
+  const isOnline = order.source === "online";
+
+  return (
+    <div ref={ref} className={styles.rowMenuAnchor}>
+      <button
+        type="button"
+        aria-label="Row actions"
+        className={`${styles.ordersRowMenuBtn} ${open ? styles.ordersRowMenuBtnOpen : ""}`}
+        onClick={(e) => { e.stopPropagation(); open ? onClose() : onOpen(); }}
+      >
+        <MoreIcon />
+      </button>
+      {open && (
+        <div className={styles.rowMenu} onClick={(e) => e.stopPropagation()}>
+          <button className={styles.rowMenuItem} onClick={() => { onClose(); onView(); }}>
+            View details
+          </button>
+          {opts.length > 0 && <div className={styles.rowMenuSep} />}
+          {opts.map((s) => (
+            <button
+              key={s}
+              className={styles.rowMenuItem}
+              onClick={() => { onClose(); onChangeStatus(s); }}
+            >
+              Mark as {STATUS_LABEL[s].toLowerCase()}
+            </button>
+          ))}
+          {!isOnline && (
+            <>
+              <div className={styles.rowMenuSep} />
+              <button
+                className={`${styles.rowMenuItem} ${styles.rowMenuItemDanger}`}
+                onClick={() => { onClose(); onDelete(); }}
+              >
+                Delete order
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Detail side drawer */
+function OrderDrawer({
+  order, onClose, onChangeStatus, onDelete,
+}: {
+  order: Order;
+  onClose: () => void;
+  onChangeStatus: (s: OrderStatus) => void;
+  onDelete: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const isOnline = order.source === "online";
+  const opts = allowedStatusOptions(order).filter((s) => s !== order.status);
+
+  return (
+    <div className={styles.orderDrawerRoot} role="dialog" aria-label={`Order ${order.id}`}>
+      <div className={styles.orderDrawerBackdrop} onClick={onClose} />
+      <aside className={styles.orderDrawer}>
+        <div className={styles.orderDrawerHead}>
+          <div className={styles.orderDrawerHeadLeft}>
+            <span className={styles.orderDrawerTitle}>
+              #{order.id}
+              <span className={`${styles.ordersCellStatus} ${statusDotClass(order.status)}`}>
+                {STATUS_LABEL[order.status]}
+              </span>
+            </span>
+            <span className={styles.orderDrawerTitleSub}>
+              {isOnline ? "Online order" : "Manual sale"} · {new Date(order.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+            </span>
+          </div>
+          <button className={styles.orderDrawerClose} onClick={onClose} aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div className={styles.orderDrawerBody}>
+          <div className={styles.orderDrawerSection}>
+            <div className={styles.orderDrawerSectionTitle}>Customer</div>
+            <dl className={styles.orderDrawerFields}>
+              <dt>Name</dt><dd>{order.customerName}</dd>
+              <dt>Email</dt><dd>{order.customerEmail ?? "—"}</dd>
+              <dt>Phone</dt><dd>{order.customerPhone ?? "—"}</dd>
+              <dt>House</dt><dd>{order.house ?? "—"}</dd>
+            </dl>
+          </div>
+
+          <div className={styles.orderDrawerSection}>
+            <div className={styles.orderDrawerSectionTitle}>Items</div>
+            <div className={styles.orderDrawerItems}>
+              {order.items.map((i) => (
+                <div key={i.id} className={styles.orderDrawerItemRow}>
+                  <div className={styles.orderDrawerItemName}>
+                    {i.productName}
+                    {i.variantLabel && (
+                      <div className={styles.orderDrawerItemVariant}>{i.variantLabel}</div>
+                    )}
+                  </div>
+                  <span className={styles.orderDrawerItemQty}>×{i.qty}</span>
+                  <span className={styles.orderDrawerItemTotal}>{formatPHP(i.lineTotal)}</span>
+                </div>
+              ))}
+            </div>
+            <div className={styles.orderDrawerTotals}>
+              <div className={styles.orderDrawerTotalRow}>
+                <span>Subtotal</span>
+                <span>{formatPHP(order.subtotal)}</span>
+              </div>
+              {order.serviceFee > 0 && (
+                <div className={styles.orderDrawerTotalRow}>
+                  <span>Service fee</span>
+                  <span>{formatPHP(order.serviceFee)}</span>
+                </div>
+              )}
+              <div className={`${styles.orderDrawerTotalRow} ${styles.orderDrawerTotalGrand}`}>
+                <span>Total</span>
+                <span>{formatPHP(order.total)}</span>
+              </div>
+              {order.paidAmount !== order.total && (
+                <div className={styles.orderDrawerTotalRow}>
+                  <span>Paid</span>
+                  <span>{formatPHP(order.paidAmount)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.orderDrawerSection}>
+            <div className={styles.orderDrawerSectionTitle}>Payment</div>
+            <dl className={styles.orderDrawerFields}>
+              <dt>Method</dt>
+              <dd>{order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : "—"}</dd>
+              {order.paidAt && (
+                <>
+                  <dt>Paid at</dt>
+                  <dd>{new Date(order.paidAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</dd>
+                </>
+              )}
+              {order.paymongoPaymentId && (
+                <>
+                  <dt>Payment ID</dt>
+                  <dd className={styles.orderDrawerMono}>{order.paymongoPaymentId}</dd>
+                </>
+              )}
+              {order.paymongoSessionId && !order.paymongoPaymentId && (
+                <>
+                  <dt>Session</dt>
+                  <dd className={styles.orderDrawerMono}>{order.paymongoSessionId}</dd>
+                </>
+              )}
+            </dl>
+          </div>
+
+          {order.notes && (
+            <div className={styles.orderDrawerSection}>
+              <div className={styles.orderDrawerSectionTitle}>Notes</div>
+              <div style={{ color: "#e6e8eb", fontSize: "0.85rem", whiteSpace: "pre-wrap" }}>
+                {order.notes}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={styles.orderDrawerFoot}>
+          {opts.map((s) => (
+            <button
+              key={s}
+              className={styles.ordersToolbarBtn}
+              onClick={() => onChangeStatus(s)}
+            >
+              Mark as {STATUS_LABEL[s].toLowerCase()}
+            </button>
+          ))}
+          {!isOnline && (
+            <button
+              className={styles.ordersToolbarBtn}
+              style={{ color: "#f87171", borderColor: "rgba(248, 113, 113, 0.35)", marginLeft: "auto" }}
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
 }
 
 /* ─── Record sale modal ─── */
