@@ -144,13 +144,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid total" }, { status: 400 });
   }
 
-  lineItems.push({
-    name: "Service fee",
-    quantity: 1,
-    amount: serviceFee,
-    currency: "PHP",
-    description: "Payment processing & handling",
-  });
+  // Bake the service fee into the first line item's unit price so PayMongo
+  // shows only real products. Total is unchanged; our own summary shows the
+  // fee breakdown honestly. If integer division leaves a centavo remainder,
+  // set the first item's quantity to 1 and add another line for the rest —
+  // this keeps totals exact without exposing a "fee" line.
+  if (lineItems.length > 0 && serviceFee > 0) {
+    const first = lineItems[0];
+    const originalLineTotal = first.amount * first.quantity;
+    const newLineTotal = originalLineTotal + serviceFee;
+
+    if (first.quantity === 1) {
+      lineItems[0] = { ...first, amount: newLineTotal };
+    } else {
+      const perUnit = Math.floor(newLineTotal / first.quantity);
+      const remainder = newLineTotal - perUnit * first.quantity;
+      if (remainder === 0) {
+        lineItems[0] = { ...first, amount: perUnit };
+      } else {
+        // Split off one unit at (perUnit + remainder), rest at perUnit
+        lineItems[0] = { ...first, quantity: first.quantity - 1, amount: perUnit };
+        lineItems.splice(1, 0, { ...first, quantity: 1, amount: perUnit + remainder });
+      }
+    }
+  }
 
   const order = await prisma.order.create({
     data: {

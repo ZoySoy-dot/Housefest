@@ -13,7 +13,7 @@ import styles from "./Store.module.css";
 export default function CheckoutClient() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { items, subtotal, count } = useCart();
+  const { items, subtotal, count, clear } = useCart();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -78,6 +78,9 @@ export default function CheckoutClient() {
       if (!res.ok || !data.checkoutUrl) {
         throw new Error(data.error ?? "Checkout failed");
       }
+      // Order is persisted in DB — cart has done its job. Clear before redirect
+      // so returning to the tab after canceling doesn't show stale items.
+      clear();
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");

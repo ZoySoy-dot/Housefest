@@ -50,14 +50,25 @@ export async function POST(
     currency: "PHP",
   }));
 
-  if (order.serviceFee > 0) {
-    lineItems.push({
-      name: "Service fee",
-      quantity: 1,
-      amount: order.serviceFee,
-      currency: "PHP",
-      description: "Payment processing & handling",
-    });
+  // Bake the service fee into the first line item so PayMongo shows only real
+  // products (see api/checkout/route.ts for the same treatment).
+  if (lineItems.length > 0 && order.serviceFee > 0) {
+    const first = lineItems[0];
+    const originalLineTotal = first.amount * first.quantity;
+    const newLineTotal = originalLineTotal + order.serviceFee;
+
+    if (first.quantity === 1) {
+      lineItems[0] = { ...first, amount: newLineTotal };
+    } else {
+      const perUnit = Math.floor(newLineTotal / first.quantity);
+      const remainder = newLineTotal - perUnit * first.quantity;
+      if (remainder === 0) {
+        lineItems[0] = { ...first, amount: perUnit };
+      } else {
+        lineItems[0] = { ...first, quantity: first.quantity - 1, amount: perUnit };
+        lineItems.splice(1, 0, { ...first, quantity: 1, amount: perUnit + remainder });
+      }
+    }
   }
 
   const base =
