@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createCheckoutSession, type PayMongoLineItem } from "@/lib/paymongo";
 import { HOUSES, isHouse } from "@/lib/houses";
 import { serviceFeeFor } from "@/lib/fees";
+import { baseUrlFrom } from "@/lib/base-url";
 
 type CartItemInput = {
   productId: number;
@@ -186,10 +187,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const base =
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3000";
+  const base = baseUrlFrom(req);
 
   try {
     const checkout = await createCheckoutSession({

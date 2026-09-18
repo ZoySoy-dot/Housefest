@@ -54,3 +54,4 @@ service-account.json
 
 # Machine-specific lockfile backups
 package-lock-DESKTOP-*.json
+.env*
